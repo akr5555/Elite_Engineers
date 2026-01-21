@@ -8,7 +8,9 @@ import { CompatibilityBreakdown } from "@/components/CompatibilityBreakdown";
 import { TrustEvidence } from "@/components/TrustEvidence";
 import { ExplainabilityPanel } from "@/components/ExplainabilityPanel";
 import { Button } from "@/components/ui/button";
-import { getEngineerById } from "@/data/engineers";
+import { transformEngineerFromAPI } from "@/data/engineers";
+import { api } from "@/services/api";
+import { useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft,
   MapPin,
@@ -21,9 +23,31 @@ import {
 
 export default function EngineerProfile() {
   const { id } = useParams<{ id: string }>();
-  const engineer = getEngineerById(id || "");
 
-  if (!engineer) {
+  // Fetch engineer from API
+  const { data: engineer, isLoading, error } = useQuery({
+    queryKey: ['engineer', id],
+    queryFn: async () => {
+      if (!id) throw new Error('No engineer ID provided');
+      const result = await api.getEngineer(id);
+      return transformEngineerFromAPI(result);
+    },
+    enabled: !!id,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto px-4 py-16 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading engineer profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !engineer) {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />

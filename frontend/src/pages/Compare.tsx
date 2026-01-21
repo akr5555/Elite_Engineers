@@ -1,7 +1,9 @@
 import { useState, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
-import { engineers, Engineer } from "@/data/engineers";
+import { Engineer, transformEngineerFromAPI } from "@/data/engineers";
+import { api } from "@/services/api";
+import { useQuery } from "@tanstack/react-query";
 import { ScoreGauge } from "@/components/ScoreGauge";
 import { TrustMeter } from "@/components/TrustMeter";
 import { SkillBadge } from "@/components/SkillBadge";
@@ -40,11 +42,23 @@ export default function Compare() {
     initialIds.length > 0 ? initialIds : []
   );
 
+  // Fetch engineers from API
+  const { data: engineersData, isLoading } = useQuery({
+    queryKey: ['engineers'],
+    queryFn: async () => {
+      const result = await api.getEngineers({ limit: 100 });
+      return result.engineers.map(transformEngineerFromAPI);
+    },
+    staleTime: 30000,
+  });
+
+  const engineers = engineersData || [];
+
   const selectedEngineers = useMemo(() => {
     return selectedIds
       .map((id) => engineers.find((e) => e.id === id))
       .filter(Boolean) as Engineer[];
-  }, [selectedIds]);
+  }, [selectedIds, engineers]);
 
   const availableEngineers = engineers.filter(
     (e) => !selectedIds.includes(e.id)
@@ -94,6 +108,18 @@ export default function Compare() {
   }, [selectedEngineers]);
 
   const radarColors = ["hsl(var(--primary))", "hsl(var(--success))", "hsl(var(--warning))"];
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto px-4 py-16 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading engineers...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
