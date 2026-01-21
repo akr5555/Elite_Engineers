@@ -1,0 +1,184 @@
+import { useParams, Link } from "react-router-dom";
+import { Navbar } from "@/components/Navbar";
+import { ScoreGauge } from "@/components/ScoreGauge";
+import { TrustMeter } from "@/components/TrustMeter";
+import { SkillBadge } from "@/components/SkillBadge";
+import { GitHubStats } from "@/components/GitHubStats";
+import { CompatibilityBreakdown } from "@/components/CompatibilityBreakdown";
+import { TrustEvidence } from "@/components/TrustEvidence";
+import { ExplainabilityPanel } from "@/components/ExplainabilityPanel";
+import { Button } from "@/components/ui/button";
+import { getEngineerById } from "@/data/engineers";
+import {
+  ArrowLeft,
+  MapPin,
+  Github,
+  Briefcase,
+  Calendar,
+  ExternalLink,
+  MessageSquare,
+} from "lucide-react";
+
+export default function EngineerProfile() {
+  const { id } = useParams<{ id: string }>();
+  const engineer = getEngineerById(id || "");
+
+  if (!engineer) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto px-4 py-16 text-center">
+          <h1 className="text-2xl font-bold mb-4">Engineer Not Found</h1>
+          <Link to="/dashboard">
+            <Button variant="default">
+              <ArrowLeft size={16} />
+              Back to Dashboard
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Navbar />
+
+      <main className="container mx-auto px-4 py-8">
+        {/* Back Button */}
+        <Link
+          to="/dashboard"
+          className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-6"
+        >
+          <ArrowLeft size={16} />
+          Back to Engineers
+        </Link>
+
+        {/* Profile Header */}
+        <div className="card-elevated p-6 lg:p-8 mb-8">
+          <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
+            {/* Avatar and Basic Info */}
+            <div className="flex flex-col sm:flex-row gap-6 flex-1">
+              <img
+                src={engineer.avatar}
+                alt={engineer.name}
+                className="w-24 h-24 lg:w-32 lg:h-32 rounded-2xl object-cover ring-4 ring-border"
+              />
+              <div className="flex-1">
+                <h1 className="text-2xl lg:text-3xl font-bold mb-1">
+                  {engineer.name}
+                </h1>
+                <p className="text-lg text-muted-foreground mb-3">
+                  {engineer.role}
+                </p>
+                <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <MapPin size={14} />
+                    {engineer.location}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Github size={14} />
+                    @{engineer.githubUsername}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Briefcase size={14} />
+                    {engineer.experience} years exp.
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Scores */}
+            <div className="flex gap-8 lg:gap-12 justify-center lg:justify-end">
+              <ScoreGauge
+                score={engineer.compatibilityScore}
+                size="lg"
+                label="Compatibility"
+              />
+              <ScoreGauge
+                score={engineer.trustScore}
+                size="lg"
+                label="Trust Score"
+              />
+            </div>
+          </div>
+
+          {/* Skills */}
+          <div className="mt-6 pt-6 border-t border-border">
+            <h3 className="text-sm font-medium text-muted-foreground mb-3">
+              Skills & Technologies
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {engineer.skills.map((skill) => (
+                <SkillBadge key={skill} skill={skill} variant="primary" />
+              ))}
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="mt-6 pt-6 border-t border-border flex flex-wrap gap-3">
+            <Button variant="hero" size="lg">
+              <MessageSquare size={18} />
+              Contact Engineer
+            </Button>
+            <Button variant="outline" size="lg">
+              <ExternalLink size={18} />
+              View GitHub Profile
+            </Button>
+          </div>
+        </div>
+
+        {/* Main Content Grid */}
+        <div className="grid lg:grid-cols-3 gap-8">
+          {/* Left Column - Main Content */}
+          <div className="lg:col-span-2 space-y-8">
+            {/* GitHub Stats */}
+            <section>
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <Github size={20} className="text-primary" />
+                GitHub Activity
+              </h2>
+              <GitHubStats
+                totalRepos={engineer.totalRepos}
+                totalCommits={engineer.totalCommits}
+                topLanguages={engineer.topLanguages}
+                recentActivity={engineer.recentActivity}
+              />
+            </section>
+
+            {/* Compatibility Breakdown */}
+            <section className="card-elevated p-6">
+              <h2 className="text-xl font-semibold mb-6">
+                Compatibility Score Breakdown
+              </h2>
+              <CompatibilityBreakdown
+                breakdown={engineer.compatibilityBreakdown}
+              />
+            </section>
+          </div>
+
+          {/* Right Column - Sidebar */}
+          <div className="space-y-8">
+            {/* Trust Evidence */}
+            <section className="card-elevated p-6">
+              <h2 className="text-lg font-semibold mb-4">Trust & Authenticity</h2>
+              <TrustMeter score={engineer.trustScore} className="mb-6" />
+              <TrustEvidence evidence={engineer.trustEvidence} />
+            </section>
+
+            {/* Explainability Panel */}
+            <section className="card-elevated p-6">
+              <h2 className="text-lg font-semibold mb-4">
+                Why This Engineer?
+              </h2>
+              <ExplainabilityPanel
+                highlights={engineer.highlights}
+                compatibilityScore={engineer.compatibilityScore}
+              />
+            </section>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
