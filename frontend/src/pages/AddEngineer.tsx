@@ -62,7 +62,22 @@ export default function AddEngineer() {
         navigate("/dashboard");
       }, 2000);
     } catch (err: any) {
-      setError(err.message || "Failed to create engineer profile");
+      let errorMessage = "Failed to create engineer profile";
+      
+      if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      // Handle validation errors
+      if (err.message?.includes("Name") || err.message?.includes("name")) {
+        errorMessage = "Please fill in your full name";
+      } else if (err.message?.includes("github")) {
+        errorMessage = "Please provide a valid GitHub username";
+      } else if (err.message?.includes("skills")) {
+        errorMessage = "Please add at least one skill";
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
