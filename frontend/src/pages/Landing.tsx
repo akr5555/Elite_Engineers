@@ -106,10 +106,12 @@ export default function Landing() {
                   <ArrowRight size={20} />
                 </Button>
               </Link>
-              <Button variant="heroSecondary" size="xl">
-                <Github size={20} />
-                I'm an Engineer
-              </Button>
+              <Link to="/add-engineer">
+                <Button variant="heroSecondary" size="xl">
+                  <Github size={20} />
+                  I'm an Engineer
+                </Button>
+              </Link>
             </div>
 
             {/* Stats */}
