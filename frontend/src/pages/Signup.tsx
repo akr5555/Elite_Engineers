@@ -73,13 +73,17 @@ export default function Signup() {
 
       // Store token and user data
       localStorage.setItem("token", data.access_token);
-      localStorage.setItem("user", JSON.stringify(data.user));
+      localStorage.setItem("userEmail", formData.email);
+      localStorage.setItem("userRole", data.user.role);
 
       // Redirect based on role
-      if (formData.role === "engineer") {
-        navigate("/dashboard");
+      if (data.user.role === "engineer" || data.user.role === "ENGINEER") {
+        navigate("/engineer-dashboard");
+      } else if (data.user.role === "recruiter" || data.user.role === "RECRUITER") {
+        navigate("/recruiter-dashboard");
       } else {
-        navigate("/dashboard");
+        // Fallback
+        navigate("/engineer-dashboard");
       }
     } catch (err: any) {
       setError(err.message || "An error occurred during signup");
