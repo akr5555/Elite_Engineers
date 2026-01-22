@@ -10,6 +10,8 @@ import AddEngineer from "./pages/AddEngineer";
 import Compare from "./pages/Compare";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import EngineerDashboard from "./pages/EngineerDashboard";
+import RecruiterDashboard from "./pages/RecruiterDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,6 +27,8 @@ const App = () => (
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/engineer-dashboard" element={<EngineerDashboard />} />
+          <Route path="/recruiter-dashboard" element={<RecruiterDashboard />} />
           <Route path="/engineer/:id" element={<EngineerProfile />} />
           <Route path="/add-engineer" element={<AddEngineer />} />
           <Route path="/compare" element={<Compare />} />

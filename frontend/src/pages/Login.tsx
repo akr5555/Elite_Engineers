@@ -28,12 +28,19 @@ export default function Login() {
     setLoading(true);
 
     try {
+      // Send role in lowercase to match backend enum values
+      const loginData = {
+        email: formData.email,
+        password: formData.password,
+        role: formData.role // Keep it lowercase as "engineer" or "recruiter"
+      };
+
       const response = await fetch("http://localhost:8000/api/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(loginData),
       });
 
       const data = await response.json();
@@ -44,13 +51,21 @@ export default function Login() {
 
       // Store token and user data
       localStorage.setItem("token", data.access_token);
-      localStorage.setItem("user", JSON.stringify(data.user));
+      localStorage.setItem("userEmail", formData.email);
+      localStorage.setItem("userRole", data.user.role);
 
-      // Redirect based on role
-      if (formData.role === "engineer") {
-        navigate("/dashboard");
+      // Redirect based on role (check for lowercase values)
+      if (data.user.role === "engineer") {
+        navigate("/engineer-dashboard");
+      } else if (data.user.role === "recruiter") {
+        navigate("/recruiter-dashboard");
       } else {
-        navigate("/dashboard");
+        // Fallback for uppercase values
+        if (data.user.role === "ENGINEER") {
+          navigate("/engineer-dashboard");
+        } else {
+          navigate("/recruiter-dashboard");
+        }
       }
     } catch (err: any) {
       setError(err.message || "An error occurred during login");

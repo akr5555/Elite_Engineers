@@ -1,12 +1,31 @@
-import { Link, useLocation } from "react-router-dom";
-import { Search, Code2, Menu } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Search, Code2, Menu, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export function Navbar() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const role = localStorage.getItem("userRole");
+    setIsLoggedIn(!!token);
+    setUserRole(role);
+  }, [location]);
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("userRole");
+    localStorage.removeItem("userEmail");
+    setIsLoggedIn(false);
+    setUserRole(null);
+    navigate("/");
+  };
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -50,15 +69,37 @@ export function Navbar() {
 
           {/* CTA Buttons */}
           <div className="hidden md:flex items-center gap-3">
-            <Link to="/dashboard">
-              <Button variant="outline" size="sm">
-                <Search size={16} />
-                Explore
-              </Button>
-            </Link>
-            <Button variant="default" size="sm">
-              Get Started
-            </Button>
+            {isLoggedIn ? (
+              <>
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-primary/10 text-primary text-sm font-medium">
+                  <User size={16} />
+                  {userRole === "ENGINEER" ? "Engineer" : "Recruiter"}
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleLogout}
+                  className="flex items-center gap-2"
+                >
+                  <LogOut size={16} />
+                  Logout
+                </Button>
+              </>
+            ) : (
+              <>
+                <Link to="/dashboard">
+                  <Button variant="outline" size="sm">
+                    <Search size={16} />
+                    Explore
+                  </Button>
+                </Link>
+                <Link to="/login">
+                  <Button variant="default" size="sm">
+                    Get Started
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -91,15 +132,37 @@ export function Navbar() {
                   {link.label}
                 </Link>
               ))}
-              <div className="flex gap-2 mt-2 px-4">
-                <Link to="/dashboard" className="flex-1">
-                  <Button variant="outline" size="sm" className="w-full">
-                    Explore
-                  </Button>
-                </Link>
-                <Button variant="default" size="sm" className="flex-1">
-                  Get Started
-                </Button>
+              <div className="flex flex-col gap-2 mt-2 px-4">
+                {isLoggedIn ? (
+                  <>
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-primary/10 text-primary text-sm font-medium justify-center">
+                      <User size={16} />
+                      {userRole === "ENGINEER" ? "Engineer" : "Recruiter"}
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-2"
+                    >
+                      <LogOut size={16} />
+                      Logout
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Link to="/dashboard" className="flex-1">
+                      <Button variant="outline" size="sm" className="w-full">
+                        Explore
+                      </Button>
+                    </Link>
+                    <Link to="/login">
+                      <Button variant="default" size="sm" className="w-full">
+                        Get Started
+                      </Button>
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           </div>
