@@ -169,47 +169,122 @@ class GitHubService:
         Returns:
             Dictionary with stats including:
             - total_repos: Total number of repositories
-            - total_commits: Estimated total commits (last 90 days for sample repos)
+            - total_commits: Total commits across all repositories
             - total_stars: Total stars received
             - total_forks: Total forks
             - languages: Language usage statistics
             - popular_repos: List of popular repository names
         """
+        # Fetch user profile first
+        profile = await self.get_user_profile(username)
+        
         # Fetch repositories
         repos = await self.get_user_repos(username)
         
         # Initialize statistics
-        total_commits = 0
         total_stars = 0
         total_forks = 0
+        total_commits = 0
         languages = {}
         popular_repos = []
         
-        # Calculate date for recent commits (last 90 days)
-        since_date = datetime.now() - timedelta(days=90)
+        # Get total commits by searching across all repositories
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            try:
+                # Use GitHub search API to count total commits by this author
+                response = await client.get(
+                    f"{self.base_url}/search/commits",
+                    params={
+                        "q": f"author:{username}",
+                        "per_page": 1  # We only need the count
+                    },
+                    headers={
+                        **self.headers,
+                        "Accept": "application/vnd.github.cloak-preview+json"  # Required for commit search
+                    }
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    total_commits = data.get("total_count", 0)
+                    logger.info(f"Found {total_commits} total commits for {username} via search API")
+            except Exception as e:
+                logger.warning(f"Failed to fetch commit count from search API: {e}")
         
-        # Process repositories
+        # If search API didn't work, try the statistics endpoint
+        if total_commits == 0:
+            try:
+                response = await client.get(
+                    f"{self.base_url}/users/{username}/events/public",
+                    params={"per_page": 100},
+                    headers=self.headers
+                )
+                if response.status_code == 200:
+                    events = response.json()
+                    # Count push events and sum up commits
+                    for event in events:
+                        if event.get("type") == "PushEvent":
+                            commits_in_push = event.get("payload", {}).get("size", 0)
+                            total_commits += commits_in_push
+                    
+                    # Multiply by estimate since we only get recent events
+                    if total_commits > 0:
+                        total_commits = total_commits * 3  # Rough estimate
+                    logger.info(f"Estimated {total_commits} commits from recent events")
+            except Exception as e:
+                logger.warning(f"Failed to fetch events for commit estimation: {e}")
+        
+        # Last resort: count commits from repositories directly
+        if total_commits == 0 and repos:
+            logger.info(f"Counting commits directly from repositories for {username}")
+            commit_count_from_repos = 0
+            
+            # Count commits from top repositories
+            for repo in repos[:15]:  # Check top 15 repos
+                try:
+                    response = await client.get(
+                        f"{self.base_url}/repos/{username}/{repo['name']}/commits",
+                        params={
+                            "author": username,
+                            "per_page": 1  # Just need count from headers
+                        },
+                        headers=self.headers
+                    )
+                    
+                    if response.status_code == 200:
+                        # Try to get total count from Link header
+                        link_header = response.headers.get("Link", "")
+                        if "last" in link_header:
+                            # Extract page number from last link
+                            import re
+                            match = re.search(r'page=(\d+)>; rel="last"', link_header)
+                            if match:
+                                commit_count_from_repos += int(match.group(1)) * 100
+                        else:
+                            # Small repo, just count what we got
+                            commits = response.json()
+                            commit_count_from_repos += len(commits)
+                            
+                except Exception as e:
+                    logger.debug(f"Could not count commits for {repo['name']}: {e}")
+                    continue
+            
+            total_commits = commit_count_from_repos
+            logger.info(f"Counted {total_commits} commits from top repositories")
+        
+        # Process repositories for other stats
         for i, repo in enumerate(repos):
             # Aggregate stars and forks
             total_stars += repo.get("stargazers_count", 0)
             total_forks += repo.get("forks_count", 0)
             
-            # Track popular repos (more than 10 stars)
-            if repo.get("stargazers_count", 0) > 10:
+            # Track popular repos (more than 5 stars)
+            if repo.get("stargazers_count", 0) > 5:
                 popular_repos.append(repo["name"])
             
-            # Aggregate languages from top repos only (to avoid rate limits)
-            if i < 10 and repo.get("language"):
-                languages[repo["language"]] = languages.get(repo["language"], 0) + 1
-            
-            # Fetch commits for popular or recently updated repos (limit to avoid rate limits)
-            if i < 5:  # Only check first 5 repos for commits
-                commits = await self.get_user_commits(
-                    username,
-                    repo["name"],
-                    since=since_date
-                )
-                total_commits += len(commits)
+            # Aggregate languages from repos
+            if repo.get("language"):
+                lang = repo["language"]
+                languages[lang] = languages.get(lang, 0) + 1
         
         return {
             "total_repos": len(repos),

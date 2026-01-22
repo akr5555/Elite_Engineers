@@ -146,6 +146,20 @@ export const api = {
   },
 
   /**
+   * Get engineer by GitHub username
+   */
+  async getEngineerByGithubUsername(username: string): Promise<Engineer | null> {
+    try {
+      const result = await this.getEngineers({ search: username, limit: 1 });
+      const engineer = result.engineers.find(e => e.github_username.toLowerCase() === username.toLowerCase());
+      return engineer || null;
+    } catch (error) {
+      console.error('Error fetching engineer by username:', error);
+      return null;
+    }
+  },
+
+  /**
    * Create a new engineer profile
    */
   async createEngineer(data: CreateEngineerData): Promise<Engineer> {

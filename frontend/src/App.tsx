@@ -12,6 +12,9 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import EngineerDashboard from "./pages/EngineerDashboard";
 import RecruiterDashboard from "./pages/RecruiterDashboard";
+import MyProfile from "./pages/MyProfile";
+import Insights from "./pages/Insights";
+import Projects from "./pages/Projects";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +31,9 @@ const App = () => (
           <Route path="/signup" element={<Signup />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/engineer-dashboard" element={<EngineerDashboard />} />
+          <Route path="/engineer-dashboard/profile" element={<MyProfile />} />
+          <Route path="/engineer-dashboard/insights" element={<Insights />} />
+          <Route path="/engineer-dashboard/projects" element={<Projects />} />
           <Route path="/recruiter-dashboard" element={<RecruiterDashboard />} />
           <Route path="/engineer/:id" element={<EngineerProfile />} />
           <Route path="/add-engineer" element={<AddEngineer />} />
