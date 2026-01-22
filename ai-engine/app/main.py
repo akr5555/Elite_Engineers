@@ -6,7 +6,7 @@ import logging
 
 from app.config import settings
 from app.database import engine, Base
-from app.api.routes import engineers
+from app.api.routes import engineers, auth
 
 # Configure logging
 logging.basicConfig(
@@ -34,19 +34,24 @@ app = FastAPI(
 )
 
 # Configure CORS
+origins = [
+    "http://localhost:8080",
+    "http://localhost:8081",  
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:8080",
+    "http://127.0.0.1:8081",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:3000",
+]
+
+# Safely add FRONTEND_URL from settings if it exists
+if hasattr(settings, "FRONTEND_URL") and settings.FRONTEND_URL:
+    origins.append(settings.FRONTEND_URL)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        settings.FRONTEND_URL,
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "http://localhost:8080",
-        "http://localhost:8081",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:8080",
-        "http://127.0.0.1:8081",
-    ],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -54,6 +59,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(engineers.router, prefix=settings.API_V1_PREFIX)
+app.include_router(auth.router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["Authentication"])
 
 
 @app.get("/")

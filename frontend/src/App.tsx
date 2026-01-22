@@ -8,6 +8,8 @@ import Dashboard from "./pages/Dashboard";
 import EngineerProfile from "./pages/EngineerProfile";
 import AddEngineer from "./pages/AddEngineer";
 import Compare from "./pages/Compare";
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -20,6 +22,8 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Landing />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/engineer/:id" element={<EngineerProfile />} />
           <Route path="/add-engineer" element={<AddEngineer />} />
