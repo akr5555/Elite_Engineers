@@ -5,7 +5,7 @@ load_dotenv()
 
 class Settings:
     # 1. Database (Local Docker)
-    DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:admin@localhost:5435/elite_engineers")
+    DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:@Nitish@6250@localhost:5440/postgres")
     
     # 2. GitHub Tokens (Split by comma for rotation)
     GITHUB_TOKENS = os.getenv("GITHUB_TOKENS", "").split(",")
