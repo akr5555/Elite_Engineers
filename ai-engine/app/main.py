@@ -6,7 +6,7 @@ import logging
 
 from app.config import settings
 from app.database import engine, Base
-from app.api.routes import engineers, auth
+from app.api.routes import engineers, auth, recruiter
 
 # Configure logging
 logging.basicConfig(
@@ -60,6 +60,7 @@ app.add_middleware(
 # Include routers
 app.include_router(engineers.router, prefix=settings.API_V1_PREFIX)
 app.include_router(auth.router, prefix=f"{settings.API_V1_PREFIX}/auth", tags=["Authentication"])
+app.include_router(recruiter.router, prefix=settings.API_V1_PREFIX)
 
 
 @app.get("/")

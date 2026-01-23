@@ -12,6 +12,9 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import EngineerDashboard from "./pages/EngineerDashboard";
 import RecruiterDashboard from "./pages/RecruiterDashboard";
+import RecruiterSearch from "./pages/RecruiterSearch";
+import RecruiterPipeline from "./pages/RecruiterPipeline";
+import RecruiterSaved from "./pages/RecruiterSaved";
 import MyProfile from "./pages/MyProfile";
 import Insights from "./pages/Insights";
 import Projects from "./pages/Projects";
@@ -35,6 +38,9 @@ const App = () => (
           <Route path="/engineer-dashboard/insights" element={<Insights />} />
           <Route path="/engineer-dashboard/projects" element={<Projects />} />
           <Route path="/recruiter-dashboard" element={<RecruiterDashboard />} />
+          <Route path="/recruiter-dashboard/search" element={<RecruiterSearch />} />
+          <Route path="/recruiter-dashboard/pipeline" element={<RecruiterPipeline />} />
+          <Route path="/recruiter-dashboard/saved" element={<RecruiterSaved />} />
           <Route path="/engineer/:id" element={<EngineerProfile />} />
           <Route path="/add-engineer" element={<AddEngineer />} />
           <Route path="/compare" element={<Compare />} />

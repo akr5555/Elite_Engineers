@@ -39,7 +39,6 @@ class AIJudge:
     def calc_match(self, job_desc: str, candidate_text: str) -> float:
         """
         Calculates Compatibility Score (0-100) using Vector Math.
-        This finds hidden connections (e.g. 'Flask' matches 'Python' contextually).
         """
         if not vector_model or not job_desc or not candidate_text:
             return 0.0
@@ -54,65 +53,70 @@ class AIJudge:
 
     def calc_trust(self, stats: dict) -> float:
         """
-        Calculates Trust Score using Rule-Based Heuristics (Fast).
-        We don't waste AI tokens on simple math.
+        Calculates Trust strictly based on COMMITS (The 'Grind') and Social Proof.
+        We penalized 'Collector' accounts that just fork repos but don't commit.
         """
         score = 0
+        commits = stats.get('total_commits', 0)
         
-        # 1. Activity Volume (Consistency)
-        commits = stats.get('commits_last_year', 0)
-        if commits > 500: score += 25
-        elif commits > 100: score += 15
-        elif commits > 20: score += 5
+        # 1. The "Grind" Score (Hard Work) - Max 60 pts
+        if commits > 1000: score += 60
+        elif commits > 500: score += 40
+        elif commits > 100: score += 20
+        elif commits > 10: score += 5
         
-        # 2. Community Validation (Social Proof)
-        if stats.get('stars', 0) > 10: score += 20
-        if stats.get('forks', 0) > 5: score += 10
-        if stats.get('followers', 0) > 10: score += 10
+        # 2. The "Clout" Score (Community Validation) - Max 40 pts
+        # Stars count heavily because strangers don't star junk code.
+        stars = stats.get('stars', 0)
+        followers = stats.get('followers', 0)
         
-        # 3. Professional Signals
-        if stats.get('is_pro'): score += 15
-        if stats.get('email_verified'): score += 10
-        if stats.get('company'): score += 5
-        if stats.get('repos', 0) > 5: score += 5
-
+        if stars > 50: score += 20
+        elif stars > 10: score += 10
+        
+        if followers > 50: score += 20
+        elif followers > 10: score += 10
+        
         return min(score, 100.0)
 
     def explain_and_verify(self, trust_score, match_score, profile_data, job_desc):
         """
-        Uses Groq (or Gemini) to:
-        1. Judge 'Authenticity' from the code snippets.
-        2. Generate a human-readable explanation.
+        The AI Rule Book: Enforces strict judgement on forks and bots.
         """
         
-        # We feed the AI the raw code/readme text we fetched
-        code_snippets = profile_data.get('raw_text_for_ai', '')[:2000] # Limit context
+        # 📜 THE RULE BOOK 📜
+        system_rules = """
+        You are an Elite Technical Judge. Analyze this engineer strictly.
         
-        prompt = f"""
-        Act as a Senior Technical Recruiter.
+        RULES:
+        1. FORKS: If a repo is tagged [FORK/TUTORIAL], do NOT count it as a skill strength. Explicitly mention "Reliance on forks" in the summary if they lack original work.
+        2. BOTS: If the commit messages look repetitive or the code looks auto-generated without human nuance, Flag it as "Suspected AI/Bot Activity".
+        3. ZERO EFFORT: If they have high repo count but low commits (Trust Score < 20), call them a "Collector, not a Creator".
+        4. MATCHING: Compare their 'Original' work to the Job Description.
         
+        OUTPUT FORMAT:
+        "Verdict: [One Sentence Summary]. Analysis: [2 sentences on strengths/weaknesses]."
+        """
+        
+        # Prepare the context for the AI
+        user_content = f"""
         Candidate: {profile_data.get('username')}
-        Stats: {profile_data.get('stats')}
-        Calculated Trust Score: {trust_score}/100
-        Calculated Match Score: {match_score}/100
-        Job Description: {job_desc[:200]}...
+        Total Commits (Last Year): {profile_data.get('stats', {}).get('total_commits')}
+        Trust Score: {trust_score}/100
+        Match Score: {match_score}/100
+        Job Description: {job_desc}
         
-        Code/Profile Context:
-        "{code_snippets}"
-        
-        TASK:
-        1. Analyze the 'Code/Profile Context'. Does this look like real, authentic engineering work or just tutorials?
-        2. Write a 2-sentence summary explaining WHY they are a good or bad fit for the job.
-        3. Mention one specific strength (e.g., "Strong Python history").
-        
-        Output format: Just the text explanation.
+        Repositories Data:
+        {profile_data.get('raw_text_for_ai', '')[:2500]} 
         """
 
         try:
             # Try Groq First (Speed)
             if self.groq_client:
                 chat = self.groq_client.chat.completions.create(
-                    messages=[{"role": "user", "content": prompt}],
+                    messages=[
+                        {"role": "system", "content": system_rules},
+                        {"role": "user", "content": user_content}
+                    ],
                     model="llama3-8b-8192"
                 )
                 return chat.choices[0].message.content
@@ -122,7 +126,9 @@ class AIJudge:
         try:
             # Fallback to Gemini
             if self.gemini_model:
-                response = self.gemini_model.generate_content(prompt)
+                # Gemini doesn't support 'system' roles as easily in this SDK version, so we combine prompts
+                combined_prompt = f"{system_rules}\n\nDATA:\n{user_content}"
+                response = self.gemini_model.generate_content(combined_prompt)
                 return response.text
         except Exception as e:
             logger.error(f"All AI failed: {e}")

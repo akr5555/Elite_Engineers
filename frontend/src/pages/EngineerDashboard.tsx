@@ -35,11 +35,13 @@ export default function EngineerDashboard() {
   const [showProfileSelection, setShowProfileSelection] = useState(false);
   const [availableProfiles, setAvailableProfiles] = useState<Engineer[]>([]);
   const [setupLoading, setSetupLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [setupData, setSetupData] = useState({
     githubUsername: "",
     name: "",
     role: "",
     location: "",
+    jobRoles: "",
   });
 
   useEffect(() => {
@@ -82,6 +84,25 @@ export default function EngineerDashboard() {
           console.log("Found engineer by stored ID:", engineer);
           setEngineerData(engineer);
           setShowSetupForm(false);
+          
+          // Auto-sync on first load if never synced or synced more than 1 day ago
+          const shouldAutoSync = !engineer.last_synced_at || 
+            (new Date().getTime() - new Date(engineer.last_synced_at).getTime() > 24 * 60 * 60 * 1000);
+          
+          if (shouldAutoSync) {
+            console.log("🔄 Auto-syncing with Elite_brain AI for fresh scores...");
+            try {
+              const syncedEngineer = await api.syncEngineer(engineer.id);
+              console.log("✅ Auto-sync complete with AI scores:", {
+                trust_score: syncedEngineer.trust_score,
+                compatibility_score: syncedEngineer.compatibility_score
+              });
+              setEngineerData(syncedEngineer);
+            } catch (syncErr) {
+              console.warn("Auto-sync failed, using existing data:", syncErr);
+            }
+          }
+          
           return;
         } catch (err) {
           console.log("Stored engineer ID not found, will search...");
@@ -158,6 +179,7 @@ export default function EngineerDashboard() {
         name: setupData.name.trim(),
         role: setupData.role.trim() || "Software Engineer",
         location: setupData.location.trim() || undefined,
+        job_roles: setupData.jobRoles.trim() || undefined,
         skills: [],
         experience: 0,
       });
@@ -184,6 +206,40 @@ export default function EngineerDashboard() {
     setShowSetupForm(false);
     // Store engineer ID for THIS user
     localStorage.setItem(`engineerId_${userEmail}`, profile.id);
+  };
+
+  const handleRefreshScores = async () => {
+    if (!engineerData) return;
+    
+    try {
+      setSyncing(true);
+      setError("");
+      
+      console.log(`🔄 Syncing engineer ${engineerData.github_username} with Elite_brain AI...`);
+      
+      // Sync with backend, which will call Elite_brain AI for fresh scores
+      const syncedEngineer = await api.syncEngineer(engineerData.id);
+      
+      console.log('✅ Received updated scores from Elite_brain AI:', {
+        trust_score: syncedEngineer.trust_score,
+        compatibility_score: syncedEngineer.compatibility_score
+      });
+      
+      setEngineerData(syncedEngineer);
+      
+      // Show success message briefly
+      const successMsg = document.createElement('div');
+      successMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+      successMsg.innerHTML = '✅ Scores refreshed with Elite_brain AI!';
+      document.body.appendChild(successMsg);
+      setTimeout(() => successMsg.remove(), 3000);
+      
+    } catch (err: any) {
+      console.error("Error syncing engineer:", err);
+      setError(err.response?.data?.detail || "Failed to refresh scores. Please try again.");
+    } finally {
+      setSyncing(false);
+    }
   };
 
   if (loading) {
@@ -342,6 +398,23 @@ export default function EngineerDashboard() {
                   />
                 </div>
 
+                <div className="space-y-2">
+                  <Label htmlFor="jobRoles">
+                    Job Roles Looking For <span className="text-destructive">*</span>
+                  </Label>
+                  <textarea
+                    id="jobRoles"
+                    placeholder="e.g., Full-stack developer with React and Node.js experience, Backend engineer specializing in Python..."
+                    value={setupData.jobRoles}
+                    onChange={(e) => setSetupData({ ...setupData, jobRoles: e.target.value })}
+                    className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    required
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Describe the type of roles you're interested in. This helps our AI match you with relevant opportunities.
+                  </p>
+                </div>
+
                 <div className="pt-4">
                   <Button 
                     type="submit" 
@@ -452,6 +525,43 @@ export default function EngineerDashboard() {
   return (
     <DashboardLayout role="ENGINEER">
       <div className="space-y-6">
+        {/* Header with Refresh Button */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Engineer Dashboard</h1>
+            <p className="text-muted-foreground mt-1">
+              {engineerData.last_synced_at 
+                ? `Last synced: ${new Date(engineerData.last_synced_at).toLocaleDateString()}`
+                : 'Never synced with AI'}
+            </p>
+          </div>
+          <Button 
+            onClick={handleRefreshScores} 
+            disabled={syncing}
+            variant="default"
+            className="gap-2"
+          >
+            {syncing ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Refreshing with AI...
+              </>
+            ) : (
+              <>
+                <TrendingUp className="w-4 h-4" />
+                Refresh AI Scores
+              </>
+            )}
+          </Button>
+        </div>
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
         {/* Profile Overview Card */}
         <Card>
           <CardHeader>
@@ -577,10 +687,15 @@ export default function EngineerDashboard() {
         <div className="grid gap-6 md:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp size={20} />
-                Compatibility Insights
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <TrendingUp size={20} />
+                  <CardTitle>Compatibility Insights</CardTitle>
+                </div>
+                <Badge variant="secondary" className="gap-1">
+                  {engineerData.last_synced_at ? "🧠 AI Powered" : "⚠️ Not Synced"}
+                </Badge>
+              </div>
               <CardDescription>How well you match with opportunities</CardDescription>
             </CardHeader>
             <CardContent>
@@ -637,10 +752,15 @@ export default function EngineerDashboard() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield size={20} />
-                Trust & Authenticity
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Shield size={20} />
+                  <CardTitle>Trust & Authenticity</CardTitle>
+                </div>
+                <Badge variant="secondary" className="gap-1">
+                  {engineerData.last_synced_at ? "🧠 AI Powered" : "⚠️ Not Synced"}
+                </Badge>
+              </div>
               <CardDescription>Your credibility score and indicators</CardDescription>
             </CardHeader>
             <CardContent>

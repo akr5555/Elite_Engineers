@@ -77,7 +77,7 @@ def main():
     
     # Check if backend is running
     try:
-        response = requests.get(f"{API_BASE_URL}/health")
+        response = requests.get(f"http://localhost:8000/health")
         response.raise_for_status()
         print("✓ Backend API is running")
         print()

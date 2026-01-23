@@ -49,6 +49,7 @@ class EngineerBase(BaseModel):
     location: Optional[str] = Field(None, max_length=255)
     avatar: Optional[str] = Field(None, max_length=500)
     bio: Optional[str] = None
+    job_roles: Optional[str] = None  # Job roles the engineer is looking for
     skills: List[str] = Field(default_factory=list)
     experience: int = Field(default=0, ge=0, le=50)
 
@@ -76,6 +77,7 @@ class EngineerUpdate(BaseModel):
     role: Optional[str] = Field(None, max_length=255)
     location: Optional[str] = Field(None, max_length=255)
     bio: Optional[str] = None
+    job_roles: Optional[str] = None
     skills: Optional[List[str]] = None
     experience: Optional[int] = Field(None, ge=0, le=50)
 

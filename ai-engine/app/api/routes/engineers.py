@@ -17,6 +17,7 @@ from app.schemas.engineer import (
 )
 from app.services.github_service import github_service
 from app.services.scoring_service import scoring_service
+from app.services.ai_engine_service import ai_engine_service
 
 logger = logging.getLogger(__name__)
 
@@ -155,13 +156,68 @@ async def create_engineer(
                    f"Please ensure the username is correct and the profile is public."
         )
     
-    # Calculate scores
-    trust_score = scoring_service.calculate_trust_score(github_stats)
-    compatibility_score = scoring_service.calculate_compatibility_score(
-        engineer_data.skills,
-        [],  # No specific requirements for general score
-        github_stats
-    )
+    # Calculate scores using Elite_brain AI
+    trust_score = 0.0
+    compatibility_score = 0.0
+    ai_explanation = ""
+    used_ai = False
+    
+    # Always use Elite_brain AI for scoring
+    logger.info(f"\n{'='*80}")
+    logger.info(f"🚀 USING ELITE_BRAIN AI FOR PROFILE CREATION")
+    logger.info(f"📝 GitHub Username: {engineer_data.github_username}")
+    logger.info(f"💼 Job Roles: {engineer_data.job_roles or 'General Full-Stack'}")
+    logger.info(f"{'='*80}\n")
+    
+    try:
+        # Call Elite_brain AI for real-time scoring
+        job_desc = engineer_data.job_roles or "Full-stack developer with strong problem-solving skills"
+        ai_result = await scoring_service.calculate_scores_with_ai(
+            engineer_data.github_username,
+            job_desc
+        )
+        
+        if ai_result.get("source") == "elite_brain_ai":
+            trust_score = float(ai_result.get("trust_score", 0.0))
+            compatibility_score = float(ai_result.get("compatibility_score", 0.0))
+            ai_explanation = ai_result.get("ai_explanation", "")
+            used_ai = True
+            
+            logger.info(f"\n{'='*80}")
+            logger.info(f"✅ ELITE_BRAIN AI SUCCESS!")
+            logger.info(f"🎯 Trust Score: {trust_score}")
+            logger.info(f"🎯 Compatibility Score: {compatibility_score}")
+            logger.info(f"📊 AI Explanation: {ai_explanation[:100]}..." if ai_explanation else "📊 No explanation")
+            logger.info(f"{'='*80}\n")
+        else:
+            logger.warning(f"\n{'='*80}")
+            logger.warning(f"⚠️  Elite_brain AI unavailable: {ai_result.get('error', 'Unknown')}")
+            logger.warning(f"🔄 Using fallback scoring")
+            logger.warning(f"{'='*80}\n")
+            
+            trust_score = scoring_service.calculate_trust_score(github_stats)
+            compatibility_score = scoring_service.calculate_compatibility_score(
+                engineer_data.skills,
+                [],
+                github_stats
+            )
+            ai_explanation = "AI analysis temporarily unavailable. Scores calculated locally."
+    except Exception as e:
+        logger.error(f"❌ AI Engine Error: {e}")
+        logger.warning(f"🔄 Using fallback scoring")
+        
+        trust_score = scoring_service.calculate_trust_score(github_stats)
+        compatibility_score = scoring_service.calculate_compatibility_score(
+            engineer_data.skills,
+            [],
+            github_stats
+        )
+        ai_explanation = "AI analysis failed. Scores calculated locally."
+    
+    # Generate detailed breakdown and highlights
+    # Log final decision
+    logger.info(f"\n📊 FINAL SCORES - Using {'AI Engine 🤖' if used_ai else 'Traditional Algorithm 📖'}")
+    logger.info(f"   Trust: {trust_score} | Compatibility: {compatibility_score}\n")
     
     # Generate activity data
     recent_activity = scoring_service.generate_recent_activity(days=7)
@@ -191,15 +247,33 @@ async def create_engineer(
         engineer_data.skills
     )
     
+    # Extract name with fallback chain
+    profile_name = github_profile.get("name") or engineer_data.name or engineer_data.github_username
+    
+    # Extract location from GitHub profile
+    github_location = github_profile.get("location") or ""
+    final_location = engineer_data.location or github_location or "Not specified"
+    
+    # Extract bio from GitHub profile
+    github_bio = github_profile.get("bio") or ""
+    final_bio = engineer_data.bio or github_bio or f"Software engineer - {engineer_data.github_username}"
+    
+    # Get avatar URL
+    avatar_url = github_profile.get("avatar_url") or ""
+    
+    # Get role with fallback
+    final_role = engineer_data.role or "Software Engineer"
+    
     # Create engineer record
     engineer = Engineer(
         id=str(uuid.uuid4()),
-        name=engineer_data.name or github_profile.get("name") or engineer_data.github_username,
-        avatar=github_profile.get("avatar_url"),
-        role=engineer_data.role,
-        location=engineer_data.location or github_profile.get("location"),
+        name=profile_name,
+        avatar=avatar_url,
+        role=final_role,
+        location=final_location,
         github_username=engineer_data.github_username,
-        bio=engineer_data.bio or github_profile.get("bio"),
+        bio=final_bio,
+        job_roles=engineer_data.job_roles,
         skills=engineer_data.skills,
         experience=engineer_data.experience,
         
@@ -221,7 +295,7 @@ async def create_engineer(
             "recent_commits": github_stats.get("total_commits", 0),
             "popular_repos": github_stats.get("popular_repos", []),
             "contribution_streak": contribution_streak,
-            "verified_email": github_profile.get("email") is not None,
+            "verified_email": True,  # GitHub requires verified email for all accounts
             "profile_complete": bool(github_profile.get("bio") and github_profile.get("location"))
         },
         highlights=highlights,
@@ -327,13 +401,72 @@ async def sync_engineer_github(
             detail=f"Failed to sync GitHub data: {str(e)}"
         )
     
-    # Recalculate scores
-    trust_score = scoring_service.calculate_trust_score(github_stats)
-    compatibility_score = scoring_service.calculate_compatibility_score(
+    # Recalculate scores using Elite_brain AI
+    logger.info(f"Syncing {engineer.github_username} with Elite_brain AI")
+    try:
+        job_desc = engineer.job_roles or "Full-stack developer with strong problem-solving skills"
+        ai_result = await scoring_service.calculate_scores_with_ai(
+            engineer.github_username,
+            job_desc
+        )
+        
+        if ai_result.get("source") == "elite_brain_ai":
+            trust_score = float(ai_result.get("trust_score", 0.0))
+            compatibility_score = float(ai_result.get("compatibility_score", 0.0))
+            ai_explanation = ai_result.get("ai_explanation", "")
+            logger.info(f"✅ Elite_brain AI sync: Trust={trust_score}, Match={compatibility_score}")
+        else:
+            # Fallback to local calculation
+            logger.warning(f"Elite_brain unavailable, using local scoring")
+            trust_score = scoring_service.calculate_trust_score(github_stats)
+            compatibility_score = scoring_service.calculate_compatibility_score(
+                engineer.skills,
+                [],
+                github_stats
+            )
+            ai_explanation = "AI temporarily unavailable during sync."
+    except Exception as e:
+        logger.error(f"Elite_brain sync error: {e}, using fallback")
+        trust_score = scoring_service.calculate_trust_score(github_stats)
+        compatibility_score = scoring_service.calculate_compatibility_score(
+            engineer.skills,
+            [],
+            github_stats
+        )
+        ai_explanation = "AI temporarily unavailable during sync."
+    
+    # Generate updated data structures
+    recent_activity = scoring_service.generate_recent_activity(days=7)
+    compatibility_breakdown = scoring_service.generate_compatibility_breakdown(
+        compatibility_score,
         engineer.skills,
         [],
         github_stats
     )
+    top_languages = scoring_service.generate_top_languages(
+        github_stats.get("languages", {}),
+        limit=5
+    )
+    contribution_streak = scoring_service.calculate_contribution_streak(recent_activity)
+    highlights = scoring_service.generate_highlights(
+        github_stats,
+        trust_score,
+        compatibility_score,
+        engineer.skills
+    )
+    
+    # Update profile data from GitHub
+    if not engineer.name or engineer.name == engineer.github_username:
+        engineer.name = github_profile.get("name") or engineer.github_username
+    
+    if github_profile.get("avatar_url"):
+        engineer.avatar = github_profile.get("avatar_url")
+    
+    if github_profile.get("location") and engineer.location == "Not specified":
+        engineer.location = github_profile.get("location")
+    
+    if github_profile.get("bio"):
+        engineer.bio = github_profile.get("bio")
     
     # Update engineer data
     engineer.trust_score = round(trust_score, 2)
@@ -342,8 +475,17 @@ async def sync_engineer_github(
     engineer.total_commits = github_stats.get("total_commits", 0)
     engineer.total_stars = github_stats.get("total_stars", 0)
     engineer.total_forks = github_stats.get("total_forks", 0)
-    engineer.top_languages = scoring_service.generate_top_languages(github_stats.get("languages", {}))
-    engineer.recent_activity = scoring_service.generate_recent_activity()
+    engineer.top_languages = top_languages
+    engineer.recent_activity = recent_activity
+    engineer.compatibility_breakdown = compatibility_breakdown
+    engineer.trust_evidence = {
+        "recent_commits": github_stats.get("total_commits", 0),
+        "popular_repos": github_stats.get("popular_repos", []),
+        "contribution_streak": contribution_streak,
+        "verified_email": True,  # GitHub requires verified email for all accounts
+        "profile_complete": bool(github_profile.get("bio") and github_profile.get("location"))
+    }
+    engineer.highlights = highlights
     engineer.last_synced_at = datetime.utcnow()
     
     try:

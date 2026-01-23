@@ -12,6 +12,7 @@ interface Engineer {
   location?: string;
   github_username: string;
   bio?: string;
+  job_roles?: string;
   skills: string[];
   experience: number;
   compatibility_score: number;
@@ -61,6 +62,7 @@ interface CreateEngineerData {
   role?: string;
   location?: string;
   bio?: string;
+  job_roles?: string;
   skills: string[];
   experience: number;
 }
@@ -70,6 +72,7 @@ interface UpdateEngineerData {
   role?: string;
   location?: string;
   bio?: string;
+  job_roles?: string;
   skills?: string[];
   experience?: number;
 }
@@ -228,6 +231,24 @@ export const api = {
   async healthCheck(): Promise<{ status: string; environment: string; version: string }> {
     const response = await fetch(`${API_BASE_URL.replace('/api', '')}/health`);
     return handleResponse(response);
+  },
+
+  /**
+   * Get all candidates from AI Engine (sorted by compatibility score)
+   */
+  async getAICandidates(): Promise<any[]> {
+    const response = await fetch(`${API_BASE_URL}/recruiter/candidates`);
+    return handleResponse<any[]>(response);
+  },
+
+  /**
+   * Search candidates using natural language query
+   */
+  async searchCandidates(query: string, limit: number = 10): Promise<any[]> {
+    const response = await fetch(`${API_BASE_URL}/recruiter/search?query=${encodeURIComponent(query)}&limit=${limit}`, {
+      method: 'POST',
+    });
+    return handleResponse<any[]>(response);
   },
 };
 

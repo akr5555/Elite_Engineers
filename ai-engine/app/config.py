@@ -32,10 +32,14 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
     
+    # Elite Brain AI Configuration
+    ELITE_BRAIN_URL: str = "http://localhost:8001"
+    
     class Config:
         """Pydantic configuration."""
         env_file = ".env"
         case_sensitive = True
+        extra = "allow"
 
 
 # Create global settings instance

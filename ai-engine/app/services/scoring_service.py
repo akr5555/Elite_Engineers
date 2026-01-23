@@ -1,9 +1,13 @@
-"""AI-powered scoring and matching service."""
+"""AI-powered scoring and matching service with Elite_brain integration."""
 
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 import random
 from datetime import datetime, timedelta
 import math
+import logging
+from app.services.elite_brain_client import elite_brain_client
+
+logger = logging.getLogger(__name__)
 
 
 class ScoringService:
@@ -38,6 +42,59 @@ class ScoringService:
         "CSS": "#1572B6",
         "Other": "#6B7280",
     }
+    
+    async def calculate_scores_with_ai(
+        self,
+        github_username: str,
+        job_description: str = "Full-stack developer with strong problem-solving skills"
+    ) -> Dict[str, Any]:
+        """
+        Calculate trust and compatibility scores using Elite_brain AI.
+        
+        This is the PRIMARY scoring method that uses real AI analysis.
+        Falls back to local calculation if Elite_brain is unavailable.
+        
+        Args:
+            github_username: GitHub username to analyze
+            job_description: Job requirements for compatibility matching
+            
+        Returns:
+            Dictionary containing:
+            - trust_score: AI-calculated trust score (0-100)
+            - compatibility_score: AI-calculated compatibility (0-100)
+            - ai_explanation: Detailed AI judgment
+            - candidate_data: Full GitHub profile data
+        """
+        try:
+            # Call Elite_brain AI for real-time analysis
+            logger.info(f"Requesting AI analysis for {github_username} from Elite_brain")
+            result = await elite_brain_client.analyze_engineer(
+                github_username,
+                job_description
+            )
+            
+            scores = result.get("scores", {})
+            return {
+                "trust_score": scores.get("trust_score", 0.0),
+                "compatibility_score": scores.get("compatibility_score", 0.0),
+                "ai_explanation": result.get("ai_explanation", ""),
+                "candidate_data": result.get("candidate", {}),
+                "github_stats": result.get("candidate", {}).get("stats", {}),
+                "source": "elite_brain_ai"
+            }
+            
+        except Exception as e:
+            logger.warning(f"Elite_brain AI unavailable for {github_username}: {e}. Using fallback.")
+            # Fallback to local calculation
+            return {
+                "trust_score": 0.0,
+                "compatibility_score": 0.0,
+                "ai_explanation": "AI analysis temporarily unavailable. Please sync profile later.",
+                "candidate_data": {},
+                "github_stats": {},
+                "source": "fallback",
+                "error": str(e)
+            }
     
     def calculate_trust_score(self, github_stats: Dict[str, Any]) -> float:
         """

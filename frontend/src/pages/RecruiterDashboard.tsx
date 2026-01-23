@@ -20,8 +20,10 @@ import {
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { api, Engineer as APIEngineer } from "@/services/api";
+import { Engineer, transformEngineerFromAPI } from "@/data/engineers";
 
-interface Engineer {
+interface RecruiterEngineer {
   id: string;
   name: string;
   avatar: string;
@@ -36,8 +38,15 @@ interface Engineer {
 export default function RecruiterDashboard() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedEngineer, setSelectedEngineer] = useState<Engineer | null>(null);
+  const [selectedEngineer, setSelectedEngineer] = useState<RecruiterEngineer | null>(null);
+  const [selectedEngineerDetails, setSelectedEngineerDetails] = useState<APIEngineer | null>(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
   const [pipelineStage, setPipelineStage] = useState<"viewed" | "shortlisted" | "contacted" | "interview">("viewed");
+  const [engineers, setEngineers] = useState<RecruiterEngineer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [useAISearch, setUseAISearch] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -47,85 +56,137 @@ export default function RecruiterDashboard() {
       navigate("/login");
       return;
     }
+
+    // Fetch engineers from API
+    fetchEngineers();
   }, [navigate]);
 
-  // Dummy engineers data
-  const engineers: Engineer[] = [
-    {
-      id: "1",
-      name: "Alex Johnson",
-      avatar: "",
-      role: "Full Stack Developer",
-      skills: ["React", "Node.js", "TypeScript", "AWS"],
-      compatibilityScore: 92,
-      trustScore: 88,
-      experience: 5,
-      location: "San Francisco, CA"
-    },
-    {
-      id: "2",
-      name: "Sarah Chen",
-      avatar: "",
-      role: "Backend Engineer",
-      skills: ["Python", "Django", "PostgreSQL", "Docker"],
-      compatibilityScore: 87,
-      trustScore: 91,
-      experience: 4,
-      location: "Austin, TX"
-    },
-    {
-      id: "3",
-      name: "Michael Rodriguez",
-      avatar: "",
-      role: "Frontend Developer",
-      skills: ["React", "Vue.js", "CSS", "JavaScript"],
-      compatibilityScore: 85,
-      trustScore: 86,
-      experience: 3,
-      location: "New York, NY"
-    },
-    {
-      id: "4",
-      name: "Emily Watson",
-      avatar: "",
-      role: "DevOps Engineer",
-      skills: ["Kubernetes", "Terraform", "AWS", "Python"],
-      compatibilityScore: 90,
-      trustScore: 93,
-      experience: 6,
-      location: "Seattle, WA"
-    },
-    {
-      id: "5",
-      name: "David Kim",
-      avatar: "",
-      role: "ML Engineer",
-      skills: ["Python", "TensorFlow", "PyTorch", "FastAPI"],
-      compatibilityScore: 88,
-      trustScore: 89,
-      experience: 4,
-      location: "Boston, MA"
-    },
-    {
-      id: "6",
-      name: "Jessica Martinez",
-      avatar: "",
-      role: "Mobile Developer",
-      skills: ["React Native", "iOS", "Android", "TypeScript"],
-      compatibilityScore: 84,
-      trustScore: 87,
-      experience: 5,
-      location: "Miami, FL"
+  const fetchEngineers = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Use AI Engine candidates endpoint to get top talent sorted by compatibility
+      const aiCandidates = await api.getAICandidates();
+      
+      if (aiCandidates && aiCandidates.length > 0) {
+        // Transform AI candidates to RecruiterEngineer format
+        const transformedEngineers: RecruiterEngineer[] = aiCandidates.map((candidate) => ({
+          id: candidate.username || candidate.id || `candidate-${Math.random()}`,
+          name: candidate.full_name || candidate.username || "Unknown",
+          avatar: "", // AI Engine may not have avatar URL
+          role: "Software Engineer", // Default role
+          skills: [], // Skills extracted by AI
+          compatibilityScore: candidate.compatibility_score || 0,
+          trustScore: candidate.trust_score || 0,
+          experience: 0,
+          location: candidate.location || "Location not specified"
+        }));
+        
+        setEngineers(transformedEngineers);
+      } else {
+        // Fallback to regular engineers API if AI Engine returns empty
+        console.log("AI Engine returned no candidates, falling back to regular API");
+        const result = await api.getEngineers({ limit: 100 });
+        
+        const transformedEngineers: RecruiterEngineer[] = result.engineers.map((apiEngineer) => {
+          const engineer = transformEngineerFromAPI(apiEngineer);
+          return {
+            id: engineer.id,
+            name: engineer.name,
+            avatar: engineer.avatar || "",
+            role: engineer.role || "Software Engineer",
+            skills: engineer.skills,
+            compatibilityScore: engineer.compatibilityScore,
+            trustScore: engineer.trustScore,
+            experience: engineer.experience,
+            location: engineer.location || "Location not specified"
+          };
+        });
+        
+        setEngineers(transformedEngineers);
+      }
+    } catch (err: any) {
+      console.error("Failed to fetch engineers:", err);
+      setError("Failed to load engineers. Please try again later.");
+      setEngineers([]);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
-  const filteredEngineers = engineers.filter((engineer) => {
-    const matchesSearch = 
-      engineer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      engineer.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      engineer.skills.some(skill => skill.toLowerCase().includes(searchQuery.toLowerCase()));
-    return matchesSearch;
-  });
+  const fetchEngineerDetails = async (engineerId: string) => {
+    try {
+      setLoadingDetails(true);
+      const details = await api.getEngineer(engineerId);
+      setSelectedEngineerDetails(details);
+    } catch (err: any) {
+      console.error("Failed to fetch engineer details:", err);
+      setSelectedEngineerDetails(null);
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+
+  const handleAISearch = async (query: string) => {
+    if (!query.trim()) {
+      // If search is empty, reload original engineers
+      fetchEngineers();
+      setUseAISearch(false);
+      return;
+    }
+
+    try {
+      setSearchLoading(true);
+      setError(null);
+      
+      // Use AI-powered natural language search
+      const searchResults = await api.searchCandidates(query, 20);
+      
+      if (searchResults && searchResults.length > 0) {
+        // Transform search results to RecruiterEngineer format
+        const transformedEngineers: RecruiterEngineer[] = searchResults.map((result) => ({
+          id: result.username || result.id || `result-${Math.random()}`,
+          name: result.full_name || result.username || "Unknown",
+          avatar: "",
+          role: "Software Engineer",
+          skills: [],
+          compatibilityScore: Math.round((result.match_confidence || 0) * 100),
+          trustScore: result.trust_score || 0,
+          experience: 0,
+          location: result.location || "Location not specified"
+        }));
+        
+        setEngineers(transformedEngineers);
+        setUseAISearch(true);
+      } else {
+        setEngineers([]);
+        setError("No engineers found matching your search. Try different keywords.");
+      }
+    } catch (err: any) {
+      console.error("AI search failed:", err);
+      setError("Search failed. Please try again.");
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const handleSelectEngineer = (engineer: RecruiterEngineer) => {
+    setSelectedEngineer(engineer);
+    fetchEngineerDetails(engineer.id);
+  };
+
+  // When using AI search, show all results; otherwise allow local filtering
+  const filteredEngineers = useAISearch 
+    ? engineers 
+    : engineers.filter((engineer) => {
+        if (!searchQuery) return true;
+        const matchesSearch = 
+          engineer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          engineer.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          engineer.skills.some(skill => skill.toLowerCase().includes(searchQuery.toLowerCase()));
+        return matchesSearch;
+      });
 
   const getInitials = (name: string) => {
     return name.split(" ").map(n => n[0]).join("").toUpperCase();
@@ -139,15 +200,33 @@ export default function RecruiterDashboard() {
   };
 
   const pipelineStages = [
-    { id: "viewed", label: "Viewed", count: 6 },
+    { id: "viewed", label: "Viewed", count: filteredEngineers.length },
     { id: "shortlisted", label: "Shortlisted", count: 0 },
     { id: "contacted", label: "Contacted", count: 0 },
     { id: "interview", label: "Interview", count: 0 }
   ] as const;
 
+  // Calculate average scores
+  const avgCompatibility = engineers.length > 0 
+    ? Math.round(engineers.reduce((sum, e) => sum + e.compatibilityScore, 0) / engineers.length)
+    : 0;
+  
+  const avgTrust = engineers.length > 0
+    ? Math.round(engineers.reduce((sum, e) => sum + e.trustScore, 0) / engineers.length)
+    : 0;
+
   return (
     <DashboardLayout role="RECRUITER">
       <div className="space-y-6">
+        {/* Error Alert */}
+        {error && (
+          <Card className="border-destructive">
+            <CardContent className="pt-6">
+              <p className="text-destructive">{error}</p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Stats Overview */}
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
@@ -157,7 +236,7 @@ export default function RecruiterDashboard() {
                   <Users className="text-primary" size={24} />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{engineers.length}</p>
+                  <p className="text-2xl font-bold">{loading ? "..." : engineers.length}</p>
                   <p className="text-sm text-muted-foreground">Engineers Found</p>
                 </div>
               </div>
@@ -170,7 +249,7 @@ export default function RecruiterDashboard() {
                   <TrendingUp className="text-green-500" size={24} />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">88%</p>
+                  <p className="text-2xl font-bold">{loading ? "..." : `${avgCompatibility}%`}</p>
                   <p className="text-sm text-muted-foreground">Avg. Match</p>
                 </div>
               </div>
@@ -183,7 +262,7 @@ export default function RecruiterDashboard() {
                   <Shield className="text-blue-500" size={24} />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">89%</p>
+                  <p className="text-2xl font-bold">{loading ? "..." : `${avgTrust}%`}</p>
                   <p className="text-sm text-muted-foreground">Avg. Trust</p>
                 </div>
               </div>
@@ -209,25 +288,54 @@ export default function RecruiterDashboard() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Search size={20} />
-              Search Engineers
+              AI-Powered Search
             </CardTitle>
-            <CardDescription>Find the perfect engineer for your team</CardDescription>
+            <CardDescription>
+              Use natural language to find engineers (e.g., "Need a Node.js backend dev with 5+ years experience")
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex gap-3">
               <div className="flex-1">
                 <Input
-                  placeholder="Search by name, skills, or role..."
+                  placeholder="Try: 'React expert with TypeScript' or 'Senior Python developer'"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleAISearch(searchQuery);
+                    }
+                  }}
                   className="w-full"
+                  disabled={searchLoading}
                 />
               </div>
-              <Button variant="outline" className="flex items-center gap-2">
-                <Filter size={16} />
-                Filters
+              <Button 
+                onClick={() => handleAISearch(searchQuery)}
+                disabled={searchLoading}
+                className="flex items-center gap-2"
+              >
+                <Search size={16} />
+                {searchLoading ? "Searching..." : "Search"}
               </Button>
+              {useAISearch && (
+                <Button 
+                  variant="outline"
+                  onClick={() => {
+                    setSearchQuery("");
+                    fetchEngineers();
+                    setUseAISearch(false);
+                  }}
+                >
+                  Clear
+                </Button>
+              )}
             </div>
+            {useAISearch && (
+              <p className="text-sm text-muted-foreground mt-2">
+                🤖 Showing AI-powered search results
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -261,15 +369,31 @@ export default function RecruiterDashboard() {
           {/* Engineers List */}
           <div className="lg:col-span-2 space-y-4">
             <h2 className="text-xl font-semibold">Discovered Engineers</h2>
-            <div className="grid gap-4 md:grid-cols-2">
-              {filteredEngineers.map((engineer) => (
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                  <p className="text-muted-foreground">Loading engineers...</p>
+                </div>
+              </div>
+            ) : filteredEngineers.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <Users className="mx-auto mb-4 text-muted-foreground" size={48} />
+                  <p className="text-lg font-medium">No engineers found</p>
+                  <p className="text-sm text-muted-foreground">Try adjusting your search filters</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2">
+                {filteredEngineers.map((engineer) => (
                 <Card 
                   key={engineer.id}
                   className={cn(
                     "cursor-pointer transition-all hover:shadow-lg",
                     selectedEngineer?.id === engineer.id && "ring-2 ring-primary"
                   )}
-                  onClick={() => setSelectedEngineer(engineer)}
+                  onClick={() => handleSelectEngineer(engineer)}
                 >
                   <CardContent className="pt-6">
                     <div className="flex items-start gap-3 mb-4">
@@ -320,7 +444,8 @@ export default function RecruiterDashboard() {
                   </CardContent>
                 </Card>
               ))}
-            </div>
+              </div>
+            )}
           </div>
 
           {/* Engineer Detail View */}
@@ -374,42 +499,72 @@ export default function RecruiterDashboard() {
                     <CardDescription>Score breakdown and insights</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium">Skill Match</span>
-                        <span className="text-sm text-muted-foreground">95%</span>
+                    {loadingDetails ? (
+                      <div className="text-center py-4">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
                       </div>
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div className="bg-green-500 h-2 rounded-full" style={{ width: "95%" }} />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium">Project Relevance</span>
-                        <span className="text-sm text-muted-foreground">88%</span>
-                      </div>
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div className="bg-blue-500 h-2 rounded-full" style={{ width: "88%" }} />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium">Experience</span>
-                        <span className="text-sm text-muted-foreground">85%</span>
-                      </div>
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div className="bg-yellow-500 h-2 rounded-full" style={{ width: "85%" }} />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium">Consistency</span>
-                        <span className="text-sm text-muted-foreground">92%</span>
-                      </div>
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div className="bg-purple-500 h-2 rounded-full" style={{ width: "92%" }} />
-                      </div>
-                    </div>
+                    ) : selectedEngineerDetails ? (
+                      <>
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium">Skill Match</span>
+                            <span className="text-sm text-muted-foreground">
+                              {Math.round(selectedEngineerDetails.compatibility_breakdown?.skill_match || 0)}%
+                            </span>
+                          </div>
+                          <div className="w-full bg-muted rounded-full h-2">
+                            <div 
+                              className="bg-green-500 h-2 rounded-full transition-all" 
+                              style={{ width: `${Math.round(selectedEngineerDetails.compatibility_breakdown?.skill_match || 0)}%` }} 
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium">Project Relevance</span>
+                            <span className="text-sm text-muted-foreground">
+                              {Math.round(selectedEngineerDetails.compatibility_breakdown?.project_relevance || 0)}%
+                            </span>
+                          </div>
+                          <div className="w-full bg-muted rounded-full h-2">
+                            <div 
+                              className="bg-blue-500 h-2 rounded-full transition-all" 
+                              style={{ width: `${Math.round(selectedEngineerDetails.compatibility_breakdown?.project_relevance || 0)}%` }} 
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium">Experience</span>
+                            <span className="text-sm text-muted-foreground">
+                              {Math.round(selectedEngineerDetails.compatibility_breakdown?.experience || 0)}%
+                            </span>
+                          </div>
+                          <div className="w-full bg-muted rounded-full h-2">
+                            <div 
+                              className="bg-yellow-500 h-2 rounded-full transition-all" 
+                              style={{ width: `${Math.round(selectedEngineerDetails.compatibility_breakdown?.experience || 0)}%` }} 
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium">Activity Consistency</span>
+                            <span className="text-sm text-muted-foreground">
+                              {Math.round(selectedEngineerDetails.compatibility_breakdown?.activity_consistency || 0)}%
+                            </span>
+                          </div>
+                          <div className="w-full bg-muted rounded-full h-2">
+                            <div 
+                              className="bg-purple-500 h-2 rounded-full transition-all" 
+                              style={{ width: `${Math.round(selectedEngineerDetails.compatibility_breakdown?.activity_consistency || 0)}%` }} 
+                            />
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-4">Select an engineer to view details</p>
+                    )}
                   </CardContent>
                 </Card>
 

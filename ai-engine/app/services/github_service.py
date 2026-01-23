@@ -188,19 +188,18 @@ class GitHubService:
         languages = {}
         popular_repos = []
         
-        # Get total commits by searching across all repositories
         async with httpx.AsyncClient(timeout=self.timeout) as client:
+            # Strategy 1: Try to get accurate commit count from search API
             try:
-                # Use GitHub search API to count total commits by this author
                 response = await client.get(
                     f"{self.base_url}/search/commits",
                     params={
                         "q": f"author:{username}",
-                        "per_page": 1  # We only need the count
+                        "per_page": 1
                     },
                     headers={
                         **self.headers,
-                        "Accept": "application/vnd.github.cloak-preview+json"  # Required for commit search
+                        "Accept": "application/vnd.github.cloak-preview+json"
                     }
                 )
                 if response.status_code == 200:
@@ -208,68 +207,46 @@ class GitHubService:
                     total_commits = data.get("total_count", 0)
                     logger.info(f"Found {total_commits} total commits for {username} via search API")
             except Exception as e:
-                logger.warning(f"Failed to fetch commit count from search API: {e}")
-        
-        # If search API didn't work, try the statistics endpoint
-        if total_commits == 0:
-            try:
-                response = await client.get(
-                    f"{self.base_url}/users/{username}/events/public",
-                    params={"per_page": 100},
-                    headers=self.headers
-                )
-                if response.status_code == 200:
-                    events = response.json()
-                    # Count push events and sum up commits
-                    for event in events:
-                        if event.get("type") == "PushEvent":
-                            commits_in_push = event.get("payload", {}).get("size", 0)
-                            total_commits += commits_in_push
-                    
-                    # Multiply by estimate since we only get recent events
-                    if total_commits > 0:
-                        total_commits = total_commits * 3  # Rough estimate
-                    logger.info(f"Estimated {total_commits} commits from recent events")
-            except Exception as e:
-                logger.warning(f"Failed to fetch events for commit estimation: {e}")
-        
-        # Last resort: count commits from repositories directly
-        if total_commits == 0 and repos:
-            logger.info(f"Counting commits directly from repositories for {username}")
-            commit_count_from_repos = 0
+                logger.warning(f"Search API failed: {e}")
             
-            # Count commits from top repositories
-            for repo in repos[:15]:  # Check top 15 repos
-                try:
-                    response = await client.get(
-                        f"{self.base_url}/repos/{username}/{repo['name']}/commits",
-                        params={
-                            "author": username,
-                            "per_page": 1  # Just need count from headers
-                        },
-                        headers=self.headers
-                    )
-                    
-                    if response.status_code == 200:
-                        # Try to get total count from Link header
-                        link_header = response.headers.get("Link", "")
-                        if "last" in link_header:
-                            # Extract page number from last link
-                            import re
-                            match = re.search(r'page=(\d+)>; rel="last"', link_header)
-                            if match:
-                                commit_count_from_repos += int(match.group(1)) * 100
-                        else:
-                            # Small repo, just count what we got
-                            commits = response.json()
-                            commit_count_from_repos += len(commits)
-                            
-                except Exception as e:
-                    logger.debug(f"Could not count commits for {repo['name']}: {e}")
-                    continue
-            
-            total_commits = commit_count_from_repos
-            logger.info(f"Counted {total_commits} commits from top repositories")
+            # Strategy 2: If search failed, count from individual repos
+            if total_commits == 0 and repos:
+                logger.info(f"Counting commits from repositories for {username}")
+                for i, repo in enumerate(repos[:20]):  # Check top 20 repos
+                    try:
+                        # Get commit count for this specific repo
+                        commit_response = await client.get(
+                            f"{self.base_url}/repos/{repo['owner']['login']}/{repo['name']}/commits",
+                            params={
+                                "author": username,
+                                "per_page": 1
+                            },
+                            headers=self.headers
+                        )
+                        
+                        if commit_response.status_code == 200:
+                            # Check Link header for pagination
+                            link_header = commit_response.headers.get("Link", "")
+                            if "last" in link_header:
+                                # Extract the last page number
+                                import re
+                                match = re.search(r'page=(\d+)>; rel="last"', link_header)
+                                if match:
+                                    last_page = int(match.group(1))
+                                    # Estimate: last_page * per_page
+                                    total_commits += last_page * 100
+                                else:
+                                    # Fallback: just count what's visible
+                                    total_commits += 100
+                            else:
+                                # Small number of commits
+                                commits_data = commit_response.json()
+                                total_commits += len(commits_data)
+                    except Exception as e:
+                        logger.debug(f"Could not count commits for {repo['name']}: {e}")
+                        continue
+                
+                logger.info(f"Counted {total_commits} commits from top repositories")
         
         # Process repositories for other stats
         for i, repo in enumerate(repos):
@@ -277,17 +254,23 @@ class GitHubService:
             total_stars += repo.get("stargazers_count", 0)
             total_forks += repo.get("forks_count", 0)
             
-            # Track popular repos (more than 5 stars)
-            if repo.get("stargazers_count", 0) > 5:
+            # Track popular repos (more than 3 stars)
+            if repo.get("stargazers_count", 0) > 3:
                 popular_repos.append(repo["name"])
             
-            # Aggregate languages from repos
-            if repo.get("language"):
+            # Aggregate languages from top repos only to save API calls
+            if i < 15 and repo.get("language"):
                 lang = repo["language"]
                 languages[lang] = languages.get(lang, 0) + 1
         
+        # If still no commits, use profile public_repos as estimate
+        if total_commits == 0:
+            # Very rough estimate: average 50 commits per repo
+            total_commits = len(repos) * 50
+            logger.info(f"Using estimated {total_commits} commits based on repo count")
+        
         return {
-            "total_repos": len(repos),
+            "total_repos": profile.get("public_repos", len(repos)),
             "total_commits": total_commits,
             "total_stars": total_stars,
             "total_forks": total_forks,
