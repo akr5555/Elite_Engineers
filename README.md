@@ -1,288 +1,246 @@
-# Elite Engineer Discovery Platform 🚀
+# 🚀 Elite Engineers Discovery Platform
 
-> **AI-Powered Engineer Discovery Based on Proof-of-Work, Not Resumes**
+**AI-Powered Engineer Discovery Based on Proof-of-Work, Not Resumes**
 
-A full-stack platform that helps you discover and evaluate top software engineers using real GitHub data, AI-powered compatibility scoring, and trust metrics.
+**Proof-of-Work Based Engineer Discovery using Public GitHub Activity**
 
-## ✨ Features
 
-### 🎯 Core Capabilities
-- **GitHub Integration**: Automatically fetch and analyze real GitHub profiles
-- **AI Scoring**: Intelligent compatibility and trust score calculations
-- **Real-Time Data**: Live integration between frontend and backend (no dummy data)
-- **Advanced Search**: Filter engineers by skills, experience, and compatibility
-- **Side-by-Side Comparison**: Compare up to 3 engineers with visual analytics
-- **Explainable AI**: Understand why each engineer is recommended
+##  Problem Statement
 
-### 🛠️ Technical Stack
+Current hiring platforms rely heavily on **resumes, keywords, follower counts, and self-reported skills**.  
+These signals fail to verify **actual engineering capability**, making it difficult for recruiters to trust profiles and for skilled engineers to get discovered based on real work.
 
-**Frontend:**
-- React 18 with TypeScript
-- TanStack Query (React Query) for data fetching
-- shadcn/ui component library
-- Tailwind CSS for styling
-- Recharts for data visualization
-- React Router for navigation
-
-**Backend:**
-- FastAPI (Python) for REST API
-- SQLAlchemy ORM with SQLite
-- Pydantic for data validation
-- GitHub API integration
-- AI-powered scoring algorithms
-
-## 🚀 Quick Start
-
-### Prerequisites
-- Python 3.9+
-- Node.js 16+
-- npm or yarn
-- Git
-
-### Installation
-
-1. **Clone the repository**
-```bash
-git clone <your-repo-url>
-cd Elite
-```
-
-2. **Backend Setup**
-```bash
-cd ai-engine
-pip install -r requirements.txt
-```
-
-3. **Frontend Setup**
-```bash
-cd frontend
-npm install
-```
-
-### Running the Application
-
-1. **Start Backend** (Terminal 1)
-```bash
-cd ai-engine
-python -m uvicorn app.main:app --reload
-```
-Backend runs on: http://localhost:8000
-
-2. **Seed Database** (Terminal 2 - First Time Only)
-```bash
-cd ai-engine
-python seed_data.py
-```
-
-3. **Start Frontend** (Terminal 3)
-```bash
-cd frontend
-npm run dev
-```
-Frontend runs on: http://localhost:5173
-
-4. **Open in Browser**
-```
-http://localhost:5173
-```
-
-## 📚 Documentation
-
-- **[Quick Start Guide](QUICK_START.md)** - Get up and running in 2 minutes
-- **[Setup Guide](SETUP_GUIDE.md)** - Detailed installation and configuration
-- **[Integration Guide](INTEGRATION_GUIDE.md)** - How frontend and backend work together
-- **[API Documentation](http://localhost:8000/docs)** - Interactive API docs (when backend is running)
-
-## 🏗️ Project Structure
-
-```
-Elite/
-├── ai-engine/                  # Backend (FastAPI)
-│   ├── app/
-│   │   ├── main.py            # FastAPI entry point
-│   │   ├── config.py          # Configuration
-│   │   ├── database.py        # Database connection
-│   │   ├── models/            # SQLAlchemy models
-│   │   ├── schemas/           # Pydantic schemas
-│   │   ├── api/routes/        # API endpoints
-│   │   ├── services/          # Business logic
-│   │   │   ├── github_service.py    # GitHub API integration
-│   │   │   └── scoring_service.py   # AI scoring algorithms
-│   │   └── utils/             # Helper functions
-│   ├── elite.db               # SQLite database
-│   ├── seed_data.py           # Database seeding script
-│   ├── requirements.txt       # Python dependencies
-│   └── README.md
-│
-├── frontend/                   # Frontend (React + TypeScript)
-│   ├── src/
-│   │   ├── App.tsx            # Main app component
-│   │   ├── pages/             # Page components
-│   │   │   ├── Dashboard.tsx         # Engineer listing
-│   │   │   ├── EngineerProfile.tsx   # Profile details
-│   │   │   ├── AddEngineer.tsx       # Add new engineer
-│   │   │   └── Compare.tsx           # Compare engineers
-│   │   ├── components/        # Reusable UI components
-│   │   ├── services/
-│   │   │   └── api.ts         # Backend API client
-│   │   └── data/
-│   │       └── engineers.ts   # Type definitions & transformers
-│   ├── package.json
-│   └── README.md
-│
-├── QUICK_START.md             # Quick start guide
-├── SETUP_GUIDE.md             # Detailed setup instructions
-├── INTEGRATION_GUIDE.md       # Frontend-backend integration docs
-└── README.md                  # This file
-```
-
-## 🎯 Key Features in Detail
-
-### 1. Engineer Dashboard
-- View all engineers with compatibility scores
-- Search by name, role, or skills
-- Filter by specific technical skills
-- Real-time data from backend API
-- Responsive grid layout
-
-### 2. Engineer Profile
-- Detailed GitHub statistics
-- Compatibility score breakdown
-- Trust meter with evidence
-- AI-generated highlights
-- Recent activity visualization
-- Language distribution charts
-
-### 3. Add Engineer
-- Simple form interface
-- Automatic GitHub data fetching
-- AI score calculation
-- Real-time validation
-- Success feedback
-
-### 4. Compare Engineers
-- Select up to 3 engineers
-- Radar chart for compatibility metrics
-- Bar chart for GitHub stats
-- Skill matrix comparison
-- Side-by-side profile viewing
-
-## 🔌 API Endpoints
-
-### Engineers
-```
-GET    /api/engineers          # List all engineers
-POST   /api/engineers          # Create new engineer
-GET    /api/engineers/{id}     # Get engineer by ID
-PUT    /api/engineers/{id}     # Update engineer
-DELETE /api/engineers/{id}     # Delete engineer
-POST   /api/engineers/{id}/sync # Sync GitHub data
-```
-
-### Health
-```
-GET    /api/health             # API health check
-```
-
-Full API documentation available at http://localhost:8000/docs when backend is running.
-
-## 🧪 Testing
-
-### Frontend Tests
-```bash
-cd frontend
-npm test
-```
-
-### Backend Tests
-```bash
-cd ai-engine
-pytest
-```
-
-### Integration Testing
-See [INTEGRATION_GUIDE.md](INTEGRATION_GUIDE.md) for detailed test scenarios.
-
-## 🔐 Environment Variables
-
-### Backend (.env in ai-engine/)
-```env
-DATABASE_URL=sqlite:///./elite.db
-GITHUB_TOKEN=your_github_personal_access_token
-API_HOST=0.0.0.0
-API_PORT=8000
-CORS_ORIGINS=["http://localhost:5173"]
-```
-
-### Frontend (.env in frontend/)
-```env
-VITE_API_BASE_URL=http://localhost:8000/api
-```
-
-## 🚀 Deployment
-
-### Backend Deployment
-1. Use PostgreSQL instead of SQLite for production
-2. Set environment variables
-3. Deploy to platforms like:
-   - Heroku
-   - AWS (EC2, ECS, Lambda)
-   - Google Cloud Run
-   - DigitalOcean App Platform
-
-### Frontend Deployment
-```bash
-cd frontend
-npm run build
-```
-Deploy the `dist/` folder to:
-- Vercel
-- Netlify
-- AWS S3 + CloudFront
-- GitHub Pages
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## 📝 License
-
-This project is licensed under the MIT License.
-
-## 🙏 Acknowledgments
-
-- [FastAPI](https://fastapi.tiangolo.com/) - Modern Python web framework
-- [React](https://react.dev/) - UI library
-- [shadcn/ui](https://ui.shadcn.com/) - Component library
-- [TanStack Query](https://tanstack.com/query) - Data fetching
-- [GitHub API](https://docs.github.com/en/rest) - Developer data source
-
-## 📞 Support
-
-For issues, questions, or contributions:
-- Check the [Documentation](SETUP_GUIDE.md)
-- Review [Integration Guide](INTEGRATION_GUIDE.md)
-- Visit API docs: http://localhost:8000/docs
-
-## ⭐ Features Roadmap
-
-- [ ] User authentication and authorization
-- [ ] Advanced filtering and sorting
-- [ ] Export to PDF/CSV
-- [ ] Email notifications
-- [ ] Team collaboration features
-- [ ] Custom scoring algorithm configuration
-- [ ] GitLab integration
-- [ ] Machine learning model improvements
-- [ ] Real-time collaboration
-- [ ] Mobile app
+Public platforms like GitHub contain rich evidence of engineering skill, but this data is:
+- Unstructured  
+- Noisy  
+- Hard to evaluate at scale  
+- Lacking explainability  
 
 ---
 
-**Built with ❤️ using FastAPI and React**
+##  Objective
+
+Build a **trustworthy, explainable engineer discovery system** that:
+- Infers skill, compatibility, and authenticity  
+- Uses **only public GitHub data**  
+- Avoids resumes, endorsements, and private information  
+- Provides **evidence-backed rankings**, not black-box scores  
+
+> **Core Principle:**  
+> Discover engineers by what they build, not what they claim.
+
+
+
+##  System Overview
+
+Elite Engineers is a **proof-of-work based recruiting & discovery platform** connecting:
+
+- **Engineers** → who want fair discovery based on real code  
+- **Recruiters** → who want trustworthy, evidence-backed shortlisting  
+
+The system analyzes **public engineering activity** (repositories, commits, READMEs, etc.) to compute:
+- **Compatibility Score** (Engineer ↔ Job / Recruiter)
+- **Trust / Authenticity Score**
+- **Evidence Report** explaining each ranking
+
+
+
+##  Structural Overview
+
+The following diagram represents the **high-level structure** of the Elite Engineers platform, showing how different system components interact.
+
+![Structural Diagram](src/assets/Structural%20Diagram.png)
+
+
+
+##  Data Flow Diagram (DFD)
+
+This Data Flow Diagram illustrates how data moves across the system — from GitHub ingestion to recruiter-side inference and scoring.
+
+![DFD Diagram](src/assets/DFD%20EE.png)
+
+
+
+##  User Roles & Modes
+
+###  Engineer Mode
+Engineers can:
+- Submit / update GitHub username  
+- Trigger profile ingestion  
+- View compatibility scores  
+- Access trust & evidence report  
+- See recruiter interest insights  
+
+---
+
+###  Recruiter Mode
+Recruiters can:
+- Submit Job Descriptions (JD)  
+- Search engineers using requirements  
+- View ranked engineer lists  
+- Filter results by:
+  - Skills  
+  - Minimum Trust Score  
+  - Minimum Compatibility %  
+
+
+
+##  Core System Components
+
+###  Compatibility Scoring Engine
+
+Measures **relevance** between:
+- Engineer ↔ Job  
+- Engineer ↔ Recruiter  
+
+**Signals Used (5+):**
+- Programming language match  
+- Past project domains  
+- Experience level  
+- Technical skills & frameworks  
+- Location / timezone  
+- Open-source contributions  
+
+**Explainability**
+- Each score is broken down per signal  
+- Example:
+  - Language Match → 30%  
+  - Project Similarity → 25%  
+  - Skills → 20%  
+
+---
+
+###  Trust & Evidence Evaluation Layer
+
+Designed to measure **profile authenticity**, independent of skill.
+
+**Trust Signals:**
+- Continuous contribution history  
+- Verified email / identity  
+- Code quality indicators  
+- Repository maturity & consistency  
+- Account age  
+
+**Evidence Report Includes:**
+- Direct GitHub links  
+- Project-level justification  
+- Transparent trust score reasoning  
+
+---
+
+##  Intelligence Pipeline (AI Architecture)
+
+The AI architecture below shows how **raw GitHub data is transformed into intelligence** using embeddings, similarity search, and LLM-based explanations.
+
+![AI Architecture](src/assets/Ai%20Architecture.png)
+
+
+
+###  Engineer End — Ingestion Phase
+
+1. **GitHub Scan**
+   - Uses GitHub GraphQL API  
+   - Fetches:
+     - Commits, stars, followers  
+     - Bio, READMEs, repository descriptions  
+
+2. **Vectorization**
+   - Model: `all-MiniLM-L6-v2`  
+   - Converts aggregated text → **384-dimensional embeddings**
+
+3. **Storage**
+   - PostgreSQL stores:
+     - Raw profile JSON (for display)  
+     - Vector embeddings (`vector(384)`) for similarity search  
+
+
+
+###  Recruiter End — Inference Phase
+
+1. Recruiter submits Job Description (JD)  
+2. JD converted into vector embedding  
+3. **Cosine similarity** computed against engineer vectors  
+4. **LLM (Groq)** generates human-readable explanation:
+   > “Strong Python background but limited React experience”
+
+
+
+##  Database Design
+
+The following schema represents how engineer profiles, embeddings, and analytics are stored in PostgreSQL.
+
+![Database Schema](src/assets/DatabaseSchema.png)
+
+
+
+##  Tech Stack
+
+### Frontend
+- React.js  
+- TailwindCSS / Material UI  
+- Charts: Recharts / Nivo  
+
+### Backend
+- Python  
+- FastAPI (async, high-performance APIs)  
+
+### Data & APIs
+- PostgreSQL (structured data + vector storage)  
+- GitHub GraphQL API (public data only)  
+- Redis (caching – future scale)  
+
+
+
+##  Scale & Performance Constraints
+
+- Processes **30–50 GitHub profiles in ~20 seconds**  
+- Public APIs only (no scraping, no paid APIs)  
+- Parallel API calls  
+- Cached embeddings  
+- Async backend architecture  
+
+
+
+##  Business Model
+
+### Engineers
+- Free discovery & visibility  
+- Subscription for:
+  - Advanced insights  
+  - Recruiter interest analytics  
+
+### Recruiters
+- Credit-based access  
+- Credits to unlock engineer profiles  
+- Shortlisting & outreach features  
+- Enterprise recruitment pipelines (future)  
+
+---
+
+##  Impact
+
+- Fair, merit-based hiring  
+- Reduced recruiter screening effort  
+- Transparent, explainable discovery  
+- Shift from **claims → evidence**  
+
+
+
+##  Status
+
+- Hackathon-ready prototype  
+- Core ingestion & inference pipeline implemented  
+- Designed for scalability & real-world deployment  
+
+
+##  Future Enhancements
+- Advanced social networking features  
+- Network-based trust signals  
+- Enterprise integrations  
+- ElasticSearch for large-scale discovery  
+
+
+
+###  Final Note
+Elite Engineers is not just a hiring platform —  
+it is an **evidence-driven intelligence system for discovering real engineering talent**.
