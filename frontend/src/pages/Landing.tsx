@@ -94,22 +94,24 @@ export default function Landing() {
 
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16 animate-fade-in-up">
-              <Link to="/dashboard">
+              <Link to="/signup">
                 <Button variant="hero" size="xl">
-                  <Search size={20} />
-                  Explore Engineers
+                  Get Started
+                  <ArrowRight size={20} />
                 </Button>
               </Link>
-              <Link to="/dashboard">
+              <Link to="/login?role=recruiter">
                 <Button variant="heroOutline" size="xl">
                   I'm a Recruiter
                   <ArrowRight size={20} />
                 </Button>
               </Link>
-              <Button variant="heroSecondary" size="xl">
-                <Github size={20} />
-                I'm an Engineer
-              </Button>
+              <Link to="/login?role=engineer">
+                <Button variant="heroSecondary" size="xl">
+                  <Github size={20} />
+                  I'm an Engineer
+                </Button>
+              </Link>
             </div>
 
             {/* Stats */}

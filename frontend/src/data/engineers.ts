@@ -1,16 +1,21 @@
+// Engineer interface matching the backend API
 export interface Engineer {
   id: string;
   name: string;
-  avatar: string;
-  role: string;
-  location: string;
+  avatar?: string;
+  role?: string;
+  location?: string;
   githubUsername: string;
   skills: string[];
   compatibilityScore: number;
   trustScore: number;
   experience: number;
+  email?: string;
+  phone?: string;
   totalRepos: number;
   totalCommits: number;
+  totalStars?: number;
+  totalForks?: number;
   topLanguages: { name: string; percentage: number; color: string }[];
   recentActivity: { date: string; commits: number }[];
   compatibilityBreakdown: {
@@ -28,6 +33,44 @@ export interface Engineer {
   };
   highlights: string[];
 }
+
+// Helper function to transform API response to frontend format
+export const transformEngineerFromAPI = (apiEngineer: any): Engineer => {
+  return {
+    id: apiEngineer.id,
+    name: apiEngineer.name,
+    avatar: apiEngineer.avatar,
+    role: apiEngineer.role,
+    location: apiEngineer.location,
+    githubUsername: apiEngineer.github_username,
+    skills: apiEngineer.skills || [],
+    compatibilityScore: apiEngineer.compatibility_score,
+    trustScore: apiEngineer.trust_score,
+    experience: apiEngineer.experience,
+    email: apiEngineer.email,
+    phone: apiEngineer.phone,
+    totalRepos: apiEngineer.total_repos,
+    totalCommits: apiEngineer.total_commits,
+    totalStars: apiEngineer.total_stars,
+    totalForks: apiEngineer.total_forks,
+    topLanguages: apiEngineer.top_languages || [],
+    recentActivity: apiEngineer.recent_activity || [],
+    compatibilityBreakdown: {
+      skillMatch: apiEngineer.compatibility_breakdown?.skill_match || 0,
+      projectRelevance: apiEngineer.compatibility_breakdown?.project_relevance || 0,
+      experience: apiEngineer.compatibility_breakdown?.experience || 0,
+      activityConsistency: apiEngineer.compatibility_breakdown?.activity_consistency || 0,
+    },
+    trustEvidence: {
+      recentCommits: apiEngineer.trust_evidence?.recent_commits || 0,
+      popularRepos: apiEngineer.trust_evidence?.popular_repos || [],
+      contributionStreak: apiEngineer.trust_evidence?.contribution_streak || 0,
+      verifiedEmail: apiEngineer.trust_evidence?.verified_email || false,
+      profileComplete: apiEngineer.trust_evidence?.profile_complete || false,
+    },
+    highlights: apiEngineer.highlights || [],
+  };
+};
 
 export const engineers: Engineer[] = [
   {
