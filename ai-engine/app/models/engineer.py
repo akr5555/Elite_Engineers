@@ -26,6 +26,8 @@ class Engineer(Base):
     github_username = Column(String(100), unique=True, index=True, nullable=False)
     bio = Column(Text)
     job_roles = Column(Text)  # Job roles the engineer is looking for
+    email = Column(String(255))  # Contact email
+    phone = Column(String(20))  # Contact phone number
     
     # Calculated Scores (0-100)
     compatibility_score = Column(Float, default=0.0)

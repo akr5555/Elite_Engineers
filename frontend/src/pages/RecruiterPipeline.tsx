@@ -9,28 +9,30 @@ import {
   TrendingUp,
   Clock,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Trash2,
+  ChevronRight,
+  Shield
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
-
-interface PipelineCandidate {
-  id: string;
-  name: string;
-  avatar: string;
-  role: string;
-  stage: "viewed" | "shortlisted" | "contacted" | "interview" | "offer" | "hired";
-  addedDate: string;
-  compatibilityScore: number;
-  notes: string;
-}
+import { 
+  getPipelineCandidatesSorted, 
+  getPipelineStats, 
+  removeFromPipeline, 
+  updateCandidateStage,
+  PipelineCandidate 
+} from "@/services/pipelineService";
+import { useToast } from "@/hooks/use-toast";
 
 export default function RecruiterPipeline() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [candidates, setCandidates] = useState<PipelineCandidate[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedStage, setSelectedStage] = useState<string>("all");
+  const [stats, setStats] = useState(getPipelineStats());
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -41,22 +43,45 @@ export default function RecruiterPipeline() {
       return;
     }
 
-    // For now, using mock data as there's no backend endpoint for pipeline
-    // In production, this would fetch from: api.getPipelineCandidates()
-    setTimeout(() => {
-      setCandidates([]);
-      setLoading(false);
-    }, 500);
+    loadPipeline();
   }, [navigate]);
 
+  const loadPipeline = () => {
+    setLoading(true);
+    const pipelineCandidates = getPipelineCandidatesSorted(); // Already sorted by rank
+    setCandidates(pipelineCandidates);
+    setStats(getPipelineStats());
+    setLoading(false);
+  };
+
+  const handleRemoveCandidate = (id: string, name: string) => {
+    if (confirm(`Remove ${name} from pipeline?`)) {
+      removeFromPipeline(id);
+      loadPipeline();
+      toast({
+        title: "Removed from Pipeline",
+        description: `${name} has been removed from your pipeline.`,
+      });
+    }
+  };
+
+  const handleStageChange = (id: string, stage: PipelineCandidate["stage"]) => {
+    updateCandidateStage(id, stage);
+    loadPipeline();
+    toast({
+      title: "Stage Updated",
+      description: "Candidate stage has been updated successfully.",
+    });
+  };
+
   const stages = [
-    { id: "all", label: "All", count: candidates.length, color: "bg-gray-500" },
-    { id: "viewed", label: "Viewed", count: candidates.filter(c => c.stage === "viewed").length, color: "bg-blue-500" },
-    { id: "shortlisted", label: "Shortlisted", count: candidates.filter(c => c.stage === "shortlisted").length, color: "bg-purple-500" },
-    { id: "contacted", label: "Contacted", count: candidates.filter(c => c.stage === "contacted").length, color: "bg-yellow-500" },
-    { id: "interview", label: "Interview", count: candidates.filter(c => c.stage === "interview").length, color: "bg-orange-500" },
-    { id: "offer", label: "Offer", count: candidates.filter(c => c.stage === "offer").length, color: "bg-green-500" },
-    { id: "hired", label: "Hired", count: candidates.filter(c => c.stage === "hired").length, color: "bg-emerald-600" },
+    { id: "all", label: "All", count: stats.total, color: "bg-gray-500" },
+    { id: "viewed", label: "Viewed", count: stats.viewed, color: "bg-blue-500" },
+    { id: "shortlisted", label: "Shortlisted", count: stats.shortlisted, color: "bg-purple-500" },
+    { id: "contacted", label: "Contacted", count: stats.contacted, color: "bg-yellow-500" },
+    { id: "interview", label: "Interview", count: stats.interview, color: "bg-orange-500" },
+    { id: "offer", label: "Offer", count: stats.offer, color: "bg-green-500" },
+    { id: "hired", label: "Hired", count: stats.hired, color: "bg-emerald-600" },
   ];
 
   const filteredCandidates = selectedStage === "all" 
@@ -127,7 +152,9 @@ export default function RecruiterPipeline() {
               <Briefcase className="mx-auto mb-4 text-muted-foreground" size={48} />
               <p className="text-lg font-medium mb-2">No candidates in pipeline</p>
               <p className="text-sm text-muted-foreground mb-4">
-                Start adding engineers to your recruitment pipeline
+                {selectedStage === "all" 
+                  ? "Start adding engineers to your recruitment pipeline"
+                  : `No candidates in ${selectedStage} stage`}
               </p>
               <Button onClick={() => navigate("/recruiter-dashboard/search")}>
                 Find Engineers
@@ -135,54 +162,128 @@ export default function RecruiterPipeline() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4">
-            {filteredCandidates.map((candidate) => (
-              <Card key={candidate.id}>
-                <CardContent className="pt-6">
-                  <div className="flex items-start gap-4">
-                    <Avatar className="h-16 w-16">
-                      <AvatarImage src={candidate.avatar} />
-                      <AvatarFallback className="bg-primary text-primary-foreground text-xl">
-                        {getInitials(candidate.name)}
-                      </AvatarFallback>
-                    </Avatar>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm text-muted-foreground">
+                Showing <span className="font-medium text-foreground">{filteredCandidates.length}</span> candidates
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Sorted by: <span className="font-medium text-foreground">Rank Score (Highest first)</span>
+              </p>
+            </div>
 
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <h3 className="font-semibold text-lg">{candidate.name}</h3>
-                          <p className="text-sm text-muted-foreground">{candidate.role}</p>
+            <div className="grid gap-4">
+              {filteredCandidates.map((candidate, index) => (
+                <Card 
+                  key={candidate.id}
+                  className="cursor-pointer transition-all hover:shadow-lg relative overflow-hidden"
+                  onClick={() => navigate(`/engineer/${candidate.engineerId}`)}
+                >
+                  {/* Rank Badge */}
+                  <div className="absolute top-2 right-2 bg-primary text-primary-foreground px-3 py-1 rounded-full text-xs font-bold z-10">
+                    #{index + 1} - Rank: {candidate.rankScore}
+                  </div>
+
+                  <CardContent className="pt-6">
+                    <div className="flex items-start gap-4">
+                      <Avatar className="h-16 w-16">
+                        <AvatarImage src={candidate.avatar} />
+                        <AvatarFallback className="bg-primary text-primary-foreground text-xl">
+                          {getInitials(candidate.name)}
+                        </AvatarFallback>
+                      </Avatar>
+
+                      <div className="flex-1">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <h3 className="font-semibold text-lg">{candidate.name}</h3>
+                            <p className="text-sm text-muted-foreground">{candidate.role}</p>
+                            <p className="text-xs text-muted-foreground">{candidate.location}</p>
+                          </div>
+                          <Badge className={cn(getStageColor(candidate.stage), "text-white")}>
+                            {candidate.stage.charAt(0).toUpperCase() + candidate.stage.slice(1)}
+                          </Badge>
                         </div>
-                        <Badge className={cn(getStageColor(candidate.stage), "text-white")}>
-                          {candidate.stage.charAt(0).toUpperCase() + candidate.stage.slice(1)}
-                        </Badge>
-                      </div>
 
-                      <div className="flex items-center gap-4 mb-3">
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <Clock size={14} />
-                          Added {candidate.addedDate}
+                        {/* Skills */}
+                        <div className="flex flex-wrap gap-1 mb-3">
+                          {candidate.skills.slice(0, 5).map((skill) => (
+                            <Badge key={skill} variant="secondary" className="text-xs">
+                              {skill}
+                            </Badge>
+                          ))}
+                          {candidate.skills.length > 5 && (
+                            <Badge variant="outline" className="text-xs">
+                              +{candidate.skills.length - 5}
+                            </Badge>
+                          )}
                         </div>
-                        <div className="flex items-center gap-1 text-sm">
-                          <TrendingUp size={14} className="text-primary" />
-                          <span className="font-medium">{candidate.compatibilityScore}% Match</span>
+
+                        <div className="flex items-center gap-4 mb-3">
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <Clock size={14} />
+                            Added {new Date(candidate.addedDate).toLocaleDateString()}
+                          </div>
+                          <div className="flex items-center gap-1 text-sm">
+                            <TrendingUp size={14} className="text-green-500" />
+                            <span className="font-medium">{candidate.compatibilityScore}% Match</span>
+                          </div>
+                          <div className="flex items-center gap-1 text-sm">
+                            <Shield size={14} className="text-blue-500" />
+                            <span className="font-medium">{candidate.trustScore}% Trust</span>
+                          </div>
                         </div>
-                      </div>
 
-                      {candidate.notes && (
-                        <p className="text-sm text-muted-foreground mb-3">{candidate.notes}</p>
-                      )}
+                        {candidate.notes && (
+                          <p className="text-sm text-muted-foreground mb-3 p-2 bg-muted rounded">{candidate.notes}</p>
+                        )}
 
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm">View Profile</Button>
-                        <Button variant="outline" size="sm">Move Stage</Button>
-                        <Button variant="outline" size="sm">Add Note</Button>
+                        <div className="flex gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/engineer/${candidate.engineerId}`);
+                            }}
+                          >
+                            View Profile
+                            <ChevronRight size={14} className="ml-1" />
+                          </Button>
+                          <select 
+                            className="px-2 py-1 text-sm border border-border rounded-md bg-background"
+                            value={candidate.stage}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              handleStageChange(candidate.id, e.target.value as PipelineCandidate["stage"]);
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <option value="viewed">Viewed</option>
+                            <option value="shortlisted">Shortlisted</option>
+                            <option value="contacted">Contacted</option>
+                            <option value="interview">Interview</option>
+                            <option value="offer">Offer</option>
+                            <option value="hired">Hired</option>
+                          </select>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveCandidate(candidate.id, candidate.name);
+                            }}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 size={14} />
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
         )}
 

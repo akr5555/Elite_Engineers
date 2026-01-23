@@ -11,13 +11,17 @@ import {
   Shield,
   ChevronRight,
   Users,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Plus,
+  Check
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { api, Engineer as APIEngineer } from "@/services/api";
 import { transformEngineerFromAPI } from "@/data/engineers";
+import { addToPipeline, isInPipeline } from "@/services/pipelineService";
+import { useToast } from "@/hooks/use-toast";
 
 interface EngineerCard {
   id: string;
@@ -33,6 +37,7 @@ interface EngineerCard {
 
 export default function RecruiterSearch() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [engineers, setEngineers] = useState<EngineerCard[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,6 +45,7 @@ export default function RecruiterSearch() {
   const [minTrustScore, setMinTrustScore] = useState(0);
   const [minCompatibilityScore, setMinCompatibilityScore] = useState(0);
   const [showFilters, setShowFilters] = useState(false);
+  const [pipelineEngineers, setPipelineEngineers] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -49,9 +55,16 @@ export default function RecruiterSearch() {
       navigate("/login");
       return;
     }
-
+    updatePipelineStatus();
     fetchEngineers();
   }, [navigate]);
+
+  const updatePipelineStatus = () => {
+    const inPipeline = engineers
+      .filter(e => isInPipeline(e.id))
+      .map(e => e.id);
+    setPipelineEngineers(new Set(inPipeline));
+  };
 
   const fetchEngineers = async () => {
     try {
@@ -81,20 +94,45 @@ export default function RecruiterSearch() {
       setEngineers(transformedEngineers);
     } catch (err: any) {
       console.error("Failed to fetch engineers:", err);
-      setError("Failed to load engineers. Please try again later.");
-      setEngineers([]);
+      setError(err.message || "Failed to fetch engineers");
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredEngineers = engineers.filter((engineer) => {
-    const matchesSearch = 
-      engineer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      engineer.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      engineer.skills.some(skill => skill.toLowerCase().includes(searchQuery.toLowerCase()));
-    return matchesSearch;
-  });
+  const handleAddToPipeline = (engineer: EngineerCard, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    const success = addToPipeline(engineer);
+    if (success) {
+      setPipelineEngineers(prev => new Set([...prev, engineer.id]));
+      toast({
+        title: "Added to Pipeline",
+        description: `${engineer.name} has been added to your recruitment pipeline.`,
+      });
+    } else {
+      toast({
+        title: "Already in Pipeline",
+        description: `${engineer.name} is already in your pipeline.`,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const filteredEngineers = engineers
+    .filter((engineer) => {
+      const matchesSearch = 
+        engineer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        engineer.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        engineer.skills.some(skill => skill.toLowerCase().includes(searchQuery.toLowerCase()));
+      return matchesSearch;
+    })
+    .sort((a, b) => {
+      // Ranking algorithm: (compatibilityScore * 0.6) + (trustScore * 0.4)
+      const rankA = (a.compatibilityScore * 0.6) + (a.trustScore * 0.4);
+      const rankB = (b.compatibilityScore * 0.6) + (b.trustScore * 0.4);
+      return rankB - rankA; // Higher rank first
+    });
 
   const getInitials = (name: string) => {
     return name.split(" ").map(n => n[0]).join("").toUpperCase();
@@ -214,6 +252,9 @@ export default function RecruiterSearch() {
           <p className="text-sm text-muted-foreground">
             Showing <span className="font-medium text-foreground">{filteredEngineers.length}</span> engineers
           </p>
+          <p className="text-sm text-muted-foreground">
+            Sorted by: <span className="font-medium text-foreground">Rank Score (60% Match + 40% Trust)</span>
+          </p>
         </div>
 
         {/* Engineers Grid */}
@@ -234,62 +275,96 @@ export default function RecruiterSearch() {
           </Card>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filteredEngineers.map((engineer) => (
-              <Card 
-                key={engineer.id}
-                className="cursor-pointer transition-all hover:shadow-lg"
-                onClick={() => navigate(`/engineer/${engineer.id}`)}
-              >
-                <CardContent className="pt-6">
-                  <div className="flex items-start gap-3 mb-4">
-                    <Avatar className="h-12 w-12">
-                      <AvatarImage src={engineer.avatar} />
-                      <AvatarFallback className="bg-primary text-primary-foreground">
-                        {getInitials(engineer.name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-lg">{engineer.name}</h3>
-                      <p className="text-sm text-muted-foreground">{engineer.role}</p>
-                      <p className="text-xs text-muted-foreground">{engineer.location}</p>
-                    </div>
+            {filteredEngineers.map((engineer) => {
+              const inPipeline = pipelineEngineers.has(engineer.id);
+              const rankScore = Math.round((engineer.compatibilityScore * 0.6) + (engineer.trustScore * 0.4));
+              
+              return (
+                <Card 
+                  key={engineer.id}
+                  className="cursor-pointer transition-all hover:shadow-lg relative overflow-hidden"
+                  onClick={() => navigate(`/engineer/${engineer.id}`)}
+                >
+                  {/* Rank Badge */}
+                  <div className="absolute top-2 right-2 bg-primary text-primary-foreground px-2 py-1 rounded-full text-xs font-bold z-10">
+                    Rank: {rankScore}
                   </div>
 
-                  <div className="flex flex-wrap gap-1 mb-4">
-                    {engineer.skills.slice(0, 3).map((skill) => (
-                      <Badge key={skill} variant="secondary" className="text-xs">
-                        {skill}
-                      </Badge>
-                    ))}
-                    {engineer.skills.length > 3 && (
-                      <Badge variant="outline" className="text-xs">
-                        +{engineer.skills.length - 3}
-                      </Badge>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 mb-4">
-                    <div className="text-center p-2 rounded-md bg-muted">
-                      <p className={cn("text-xl font-bold", getScoreColor(engineer.compatibilityScore))}>
-                        {engineer.compatibilityScore}%
-                      </p>
-                      <p className="text-xs text-muted-foreground">Match</p>
+                  <CardContent className="pt-6">
+                    <div className="flex items-start gap-3 mb-4">
+                      <Avatar className="h-12 w-12">
+                        <AvatarImage src={engineer.avatar} />
+                        <AvatarFallback className="bg-primary text-primary-foreground">
+                          {getInitials(engineer.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-lg">{engineer.name}</h3>
+                        <p className="text-sm text-muted-foreground">{engineer.role}</p>
+                        <p className="text-xs text-muted-foreground">{engineer.location}</p>
+                      </div>
                     </div>
-                    <div className="text-center p-2 rounded-md bg-muted">
-                      <p className={cn("text-xl font-bold", getScoreColor(engineer.trustScore))}>
-                        {engineer.trustScore}%
-                      </p>
-                      <p className="text-xs text-muted-foreground">Trust</p>
-                    </div>
-                  </div>
 
-                  <Button variant="outline" className="w-full" size="sm">
-                    View Profile
-                    <ChevronRight size={16} className="ml-1" />
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
+                    <div className="flex flex-wrap gap-1 mb-4">
+                      {engineer.skills.slice(0, 3).map((skill) => (
+                        <Badge key={skill} variant="secondary" className="text-xs">
+                          {skill}
+                        </Badge>
+                      ))}
+                      {engineer.skills.length > 3 && (
+                        <Badge variant="outline" className="text-xs">
+                          +{engineer.skills.length - 3}
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      <div className="text-center p-2 rounded-md bg-muted">
+                        <p className={cn("text-xl font-bold", getScoreColor(engineer.compatibilityScore))}>
+                          {engineer.compatibilityScore}%
+                        </p>
+                        <p className="text-xs text-muted-foreground">Match</p>
+                      </div>
+                      <div className="text-center p-2 rounded-md bg-muted">
+                        <p className={cn("text-xl font-bold", getScoreColor(engineer.trustScore))}>
+                          {engineer.trustScore}%
+                        </p>
+                        <p className="text-xs text-muted-foreground">Trust</p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button variant="outline" className="flex-1" size="sm">
+                        View Profile
+                        <ChevronRight size={16} className="ml-1" />
+                      </Button>
+                      <Button 
+                        variant={inPipeline ? "secondary" : "default"}
+                        size="sm"
+                        onClick={(e) => handleAddToPipeline(engineer, e)}
+                        disabled={inPipeline}
+                        className={cn(
+                          "flex items-center gap-1",
+                          inPipeline && "cursor-not-allowed"
+                        )}
+                      >
+                        {inPipeline ? (
+                          <>
+                            <Check size={16} />
+                            In Pipeline
+                          </>
+                        ) : (
+                          <>
+                            <Plus size={16} />
+                            Add
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>

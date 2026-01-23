@@ -50,6 +50,8 @@ class EngineerBase(BaseModel):
     avatar: Optional[str] = Field(None, max_length=500)
     bio: Optional[str] = None
     job_roles: Optional[str] = None  # Job roles the engineer is looking for
+    email: Optional[str] = Field(None, max_length=255)  # Contact email
+    phone: Optional[str] = Field(None, max_length=20)  # Contact phone
     skills: List[str] = Field(default_factory=list)
     experience: int = Field(default=0, ge=0, le=50)
 
@@ -78,6 +80,8 @@ class EngineerUpdate(BaseModel):
     location: Optional[str] = Field(None, max_length=255)
     bio: Optional[str] = None
     job_roles: Optional[str] = None
+    email: Optional[str] = Field(None, max_length=255)
+    phone: Optional[str] = Field(None, max_length=20)
     skills: Optional[List[str]] = None
     experience: Optional[int] = Field(None, ge=0, le=50)
 

@@ -10,6 +10,8 @@ export interface Engineer {
   compatibilityScore: number;
   trustScore: number;
   experience: number;
+  email?: string;
+  phone?: string;
   totalRepos: number;
   totalCommits: number;
   totalStars?: number;
@@ -45,6 +47,8 @@ export const transformEngineerFromAPI = (apiEngineer: any): Engineer => {
     compatibilityScore: apiEngineer.compatibility_score,
     trustScore: apiEngineer.trust_score,
     experience: apiEngineer.experience,
+    email: apiEngineer.email,
+    phone: apiEngineer.phone,
     totalRepos: apiEngineer.total_repos,
     totalCommits: apiEngineer.total_commits,
     totalStars: apiEngineer.total_stars,

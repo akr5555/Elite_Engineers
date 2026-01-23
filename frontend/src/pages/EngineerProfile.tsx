@@ -1,4 +1,4 @@
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 import { ScoreGauge } from "@/components/ScoreGauge";
 import { TrustMeter } from "@/components/TrustMeter";
@@ -8,9 +8,18 @@ import { CompatibilityBreakdown } from "@/components/CompatibilityBreakdown";
 import { TrustEvidence } from "@/components/TrustEvidence";
 import { ExplainabilityPanel } from "@/components/ExplainabilityPanel";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { transformEngineerFromAPI } from "@/data/engineers";
 import { api } from "@/services/api";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import {
   ArrowLeft,
   MapPin,
@@ -19,10 +28,28 @@ import {
   Calendar,
   ExternalLink,
   MessageSquare,
+  Mail,
+  Phone,
+  Copy,
+  Check,
 } from "lucide-react";
 
 export default function EngineerProfile() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const userRole = localStorage.getItem("userRole");
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  // Navigate back to previous page
+  const handleBack = () => {
+    navigate(-1);
+  };
+
+  const copyToClipboard = (text: string, field: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
 
   // Fetch engineer from API
   const { data: engineer, isLoading, error } = useQuery({
@@ -53,12 +80,10 @@ export default function EngineerProfile() {
         <Navbar />
         <div className="container mx-auto px-4 py-16 text-center">
           <h1 className="text-2xl font-bold mb-4">Engineer Not Found</h1>
-          <Link to="/dashboard">
-            <Button variant="default">
-              <ArrowLeft size={16} />
-              Back to Dashboard
-            </Button>
-          </Link>
+          <Button variant="default" onClick={handleBack}>
+            <ArrowLeft size={16} />
+            Back to Dashboard
+          </Button>
         </div>
       </div>
     );
@@ -70,13 +95,13 @@ export default function EngineerProfile() {
 
       <main className="container mx-auto px-4 py-8">
         {/* Back Button */}
-        <Link
-          to="/dashboard"
-          className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-6"
+        <button
+          onClick={handleBack}
+          className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-6 cursor-pointer"
         >
           <ArrowLeft size={16} />
           Back to Engineers
-        </Link>
+        </button>
 
         {/* Profile Header */}
         <div className="card-elevated p-6 lg:p-8 mb-8">
@@ -141,11 +166,103 @@ export default function EngineerProfile() {
 
           {/* Action Buttons */}
           <div className="mt-6 pt-6 border-t border-border flex flex-wrap gap-3">
-            <Button variant="hero" size="lg">
-              <MessageSquare size={18} />
-              Contact Engineer
-            </Button>
-            <Button variant="outline" size="lg">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="hero" size="lg">
+                  <MessageSquare size={18} />
+                  Contact Engineer
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Contact Information</DialogTitle>
+                  <DialogDescription>
+                    Get in touch with {engineer.name}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  {engineer.email ? (
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                      <div className="flex items-center gap-3">
+                        <Mail size={18} className="text-primary" />
+                        <div>
+                          <p className="text-sm font-medium">Email</p>
+                          <p className="text-sm text-muted-foreground">{engineer.email}</p>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => copyToClipboard(engineer.email!, 'email')}
+                      >
+                        {copiedField === 'email' ? (
+                          <Check size={16} className="text-green-500" />
+                        ) : (
+                          <Copy size={16} />
+                        )}
+                      </Button>
+                    </div>
+                  ) : null}
+                  
+                  {engineer.phone ? (
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                      <div className="flex items-center gap-3">
+                        <Phone size={18} className="text-primary" />
+                        <div>
+                          <p className="text-sm font-medium">Phone</p>
+                          <p className="text-sm text-muted-foreground">{engineer.phone}</p>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => copyToClipboard(engineer.phone!, 'phone')}
+                      >
+                        {copiedField === 'phone' ? (
+                          <Check size={16} className="text-green-500" />
+                        ) : (
+                          <Copy size={16} />
+                        )}
+                      </Button>
+                    </div>
+                  ) : null}
+                  
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                    <div className="flex items-center gap-3">
+                      <Github size={18} className="text-primary" />
+                      <div>
+                        <p className="text-sm font-medium">GitHub</p>
+                        <p className="text-sm text-muted-foreground">@{engineer.githubUsername}</p>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => copyToClipboard(engineer.githubUsername, 'github')}
+                    >
+                      {copiedField === 'github' ? (
+                        <Check size={16} className="text-green-500" />
+                      ) : (
+                        <Copy size={16} />
+                      )}
+                    </Button>
+                  </div>
+
+                  {!engineer.email && !engineer.phone && (
+                    <div className="text-center py-4 text-sm text-muted-foreground">
+                      <p>No contact information available.</p>
+                      <p className="mt-1">Try reaching out via GitHub.</p>
+                    </div>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
+            
+            <Button 
+              variant="outline" 
+              size="lg"
+              onClick={() => window.open(`https://github.com/${engineer.githubUsername}`, '_blank')}
+            >
               <ExternalLink size={18} />
               View GitHub Profile
             </Button>
